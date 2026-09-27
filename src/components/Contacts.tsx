@@ -9,7 +9,7 @@ import { Pasta } from "./Pasta";
 import { Reveal, SplitText } from "./motion";
 
 const CHANNELS = [
-  { t: "Позвонить", v: "+998 71 200-00-00", href: "tel:+998712000000", cls: "bg-mk-blue text-white" },
+  { t: "Позвонить", v: "+998 (99) 400-30-10", href: "tel:+998994003010", cls: "bg-mk-blue text-white" },
   { t: "Написать", v: "hello@makstar.uz", href: "mailto:hello@makstar.uz", cls: "bg-mk-yellow" },
   { t: "Telegram", v: "@makstar_support", href: "#", cls: "bg-mk-black text-white" },
 ];
@@ -137,8 +137,8 @@ function MapCard() {
       </div>
       <div className="absolute inset-x-4 bottom-4 rounded-3xl bg-white p-5">
         <div className="text-xs font-bold uppercase tracking-[0.2em] text-mk-blue">Офис и пункт выдачи</div>
-        <div className="mt-1 font-display text-lg font-bold">г. Ташкент, ул. Макаронная, 1</div>
-        <div className="text-sm text-mk-black/60">Пн–Сб 9:00–20:00, Вс 10:00–18:00</div>
+        <div className="mt-1 font-display text-lg font-bold">111700, Ташкентская обл., г. Чирчик, ул. Ш. Рашидова, 368</div>
+        <div className="text-sm text-mk-black/60">Ежедневно 7:00–19:00, без перерыва</div>
       </div>
     </div>
   );

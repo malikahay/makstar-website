@@ -68,9 +68,9 @@ export function Footer() {
         <div>
           <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-white/40">Связь</div>
           <ul className="space-y-2 font-semibold">
-            <li><a className="hover:text-mk-yellow" href="tel:+998712000000">+998 71 200-00-00</a></li>
+            <li><a className="hover:text-mk-yellow" href="tel:+998994003010">+998 (99) 400-30-10</a></li>
             <li><a className="hover:text-mk-yellow" href="mailto:hello@makstar.uz">hello@makstar.uz</a></li>
-            <li className="text-white/60">Ежедневно, 9:00–21:00</li>
+            <li className="text-white/60">Ежедневно, 7:00–19:00</li>
           </ul>
           <div className="mt-6 flex gap-2">
             {["TG", "IG", "YT"].map((s) => (
@@ -89,6 +89,9 @@ export function Footer() {
       <div className="relative px-4 md:px-8">
         <motion.div style={{ y }} className="text-center">
           <Logo className="text-[20vw] text-mk-blue" />
+          <p className="mt-2 font-display text-xl font-black uppercase text-mk-yellow md:text-4xl">
+            Будьте здоровы, живите богато!
+          </p>
         </motion.div>
         <motion.div style={{ rotate }} className="pointer-events-none absolute right-[8%] top-0 h-[12vw] w-[12vw]">
           <Pasta kind="fusilli" className="h-full w-full" />

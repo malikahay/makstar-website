@@ -12,7 +12,7 @@ import { Reveal, SplitText } from "./motion";
 const ZONES = [
   { t: "Ташкент", time: "Сегодня или завтра", price: formatPrice(SHIPPING_PRICE), note: `Бесплатно от ${formatPrice(FREE_SHIPPING_FROM)}`, cls: "bg-mk-blue text-white" },
   { t: "Регионы", time: "1–3 дня", price: "от 25 000 сум", note: "Все областные центры", cls: "bg-mk-yellow" },
-  { t: "Самовывоз", time: "Через 2 часа", price: "Бесплатно", note: "Из пунктов выдачи Makstar", cls: "bg-mk-black text-white" },
+  { t: "Самовывоз", time: "Через 2 часа", price: "Бесплатно", note: "Чирчик, ул. Ш. Рашидова, 368", cls: "bg-mk-black text-white" },
 ];
 
 const ROUTE = ["Заказ принят", "Собираем", "В пути", "У вашей двери"];

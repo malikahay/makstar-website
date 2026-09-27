@@ -84,7 +84,6 @@ function Hero() {
   const packRY = useTransform(mx, (v) => v * 30);
   const packRX = useTransform(my, (v) => v * -20);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const badgeRotate = useTransform(scrollYProgress, [0, 1], [0, 360]);
 
   const penne = products.find((p) => p.slug === "penne")!;
 
@@ -98,7 +97,7 @@ function Hero() {
       }}
     >
       {/* rays */}
-      <div className="pointer-events-none absolute left-1/2 top-[55%] h-[160vmax] w-[160vmax] -translate-x-1/2 -translate-y-1/2 animate-spin-slow opacity-[0.07] [animation-duration:80s]">
+      <div className="pointer-events-none absolute left-1/2 top-[55%] h-[160vmax] w-[160vmax] -translate-x-1/2 -translate-y-1/2 animate-spin-slow opacity-[0.025] [animation-duration:200s]">
         <div className="h-full w-full bg-[repeating-conic-gradient(from_0deg,#fff_0deg_6deg,transparent_6deg_18deg)] rounded-full" />
       </div>
 
@@ -142,15 +141,6 @@ function Hero() {
 
       {/* copy */}
       <motion.div style={{ opacity: contentOpacity }} className="relative z-30 mx-auto max-w-[1400px] px-4 pt-32 md:px-8 md:pt-40">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={ready ? { opacity: 1, y: 0 } : undefined}
-          transition={{ duration: 1, ease: EXPO, delay: 0.2 }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.25em] backdrop-blur"
-        >
-          <span className="h-2 w-2 animate-pulse rounded-full bg-mk-yellow" />
-          100% твёрдая пшеница
-        </motion.div>
         <h1 className="max-w-3xl font-display text-[13vw] font-black uppercase leading-[0.88] tracking-tight sm:text-7xl md:text-8xl">
           <SplitText text="Вари." className="block" />
           <SplitText text="Жарь." className="block" wordClassName="text-mk-yellow" delay={0.1} />
@@ -177,25 +167,6 @@ function Hero() {
             Рецепты
           </Button>
         </motion.div>
-      </motion.div>
-
-      {/* rotating badge */}
-      <motion.div
-        style={{ rotate: badgeRotate }}
-        className="absolute bottom-[30%] left-[46%] z-30 hidden h-32 w-32 lg:block"
-      >
-        <div className="relative h-full w-full animate-spin-slow">
-          <svg viewBox="0 0 100 100" className="h-full w-full">
-            <defs>
-              <path id="circ" d="M50 50 m-38 0 a38 38 0 1 1 76 0 a38 38 0 1 1 -76 0" />
-            </defs>
-            <circle cx="50" cy="50" r="49" fill="var(--color-mk-yellow)" />
-            <text fontSize="9.4" fontWeight="800" letterSpacing="2" fill="var(--color-mk-black)">
-              <textPath href="#circ">БРОНЗОВАЯ МАТРИЦА • МЕДЛЕННАЯ СУШКА •</textPath>
-            </text>
-          </svg>
-        </div>
-        <Star className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-mk-blue" />
       </motion.div>
 
       {/* scroll cue */}

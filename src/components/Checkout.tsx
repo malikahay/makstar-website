@@ -411,7 +411,7 @@ export function CheckoutPage() {
                       <div className="rounded-2xl bg-mk-yellow-soft/60 p-5 text-sm">
                         <b>{form.name}</b>, {form.phone}
                         <br />
-                        {delivery === "courier" ? `${form.address}, ${slot}` : "Самовывоз: ул. Макаронная, 1"}
+                        {delivery === "courier" ? `${form.address}, ${slot}` : "Самовывоз: г. Чирчик, ул. Ш. Рашидова, 368"}
                       </div>
                     </>
                   )}

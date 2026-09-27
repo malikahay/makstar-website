@@ -168,7 +168,7 @@ export function Header() {
               animate={{ opacity: 1, transition: { delay: 0.6 } }}
               exit={{ opacity: 0 }}
             >
-              <a href="tel:+998712000000">+998 71 200-00-00</a>
+              <a href="tel:+998994003010">+998 (99) 400-30-10</a>
               <a href="mailto:hello@makstar.uz">hello@makstar.uz</a>
             </motion.div>
           </motion.div>
