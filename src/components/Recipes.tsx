@@ -3,10 +3,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { lenisRef } from "@/lib/lenis";
-import { getProduct, methodLabels, type Method, type PastaKind } from "@/lib/products";
+import { methodLabels, type Method, type PastaKind } from "@/lib/products";
 import type { Recipe } from "@/lib/recipes";
 import { Button } from "./Button";
 import { useCart } from "./CartProvider";
+import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
 
 const methodBg: Record<Method, string> = {
@@ -89,6 +90,7 @@ export function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => v
 
 export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
   const { add } = useCart();
+  const { getProduct } = useProducts();
   const product = getProduct(recipe.product);
   const [done, setDone] = useState<Set<number>>(new Set());
 

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "./AuthProvider";
 import { useCart } from "./CartProvider";
 import { Logo } from "./Logo";
 import { TLink } from "./TransitionProvider";
@@ -18,6 +19,8 @@ export const NAV = [
 export function Header() {
   const pathname = usePathname();
   const { count, bump, setDrawerOpen } = useCart();
+  const { user } = useAuth();
+  const accountHref = user ? "/account" : "/login";
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -82,6 +85,17 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <TLink
+              href={accountHref}
+              className={`relative grid h-11 w-11 place-items-center rounded-full transition-colors ${
+                solid || menu ? "bg-mk-black/5 text-mk-black" : "bg-white/15 text-white"
+              }`}
+              aria-label={user ? `Личный кабинет: ${user.name}` : "Войти"}
+              title={user ? user.name : "Войти"}
+            >
+              <UserIcon />
+              {user && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-mk-yellow ring-2 ring-current" />}
+            </TLink>
             <button
               id="cart-target"
               onClick={() => setDrawerOpen(true)}
@@ -142,7 +156,7 @@ export function Header() {
             transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
           >
             <nav className="flex flex-col gap-2">
-              {[{ href: "/", label: "Главная" }, ...NAV].map((n, i) => (
+              {[{ href: "/", label: "Главная" }, ...NAV, { href: accountHref, label: user ? "Кабинет" : "Войти" }].map((n, i) => (
                 <div key={n.href} className="overflow-hidden">
                   <motion.div
                     initial={{ y: "100%" }}
@@ -175,6 +189,15 @@ export function Header() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+function UserIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" strokeLinecap="round" />
+    </svg>
   );
 }
 

@@ -1,22 +1,19 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
-import {
-  FREE_SHIPPING_FROM,
-  SHIPPING_PRICE,
-  formatPrice,
-  getProduct,
-  products,
-  type PastaKind,
-} from "@/lib/products";
+import { useEffect, useState } from "react";
+import { api, type Order } from "@/lib/client";
+import { FREE_SHIPPING_FROM, SHIPPING_PRICE, formatPrice, type PastaKind } from "@/lib/products";
+import { useAuth } from "./AuthProvider";
 import { Arrow, Button } from "./Button";
 import { CartLine, FreeShippingBar } from "./CartBits";
-import { PROMO_CODE, priceOf, useCart } from "./CartProvider";
+import { PROMO_CODE, useCart } from "./CartProvider";
 import { Field } from "./Contacts";
 import { PageHero } from "./PageHero";
 import { Pasta } from "./Pasta";
 import { ProductCard } from "./ProductCard";
+import { useProducts } from "./ProductsProvider";
+import { TLink } from "./TransitionProvider";
 import { Reveal } from "./motion";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -36,7 +33,8 @@ function Summary({
   children?: React.ReactNode;
   compact?: boolean;
 }) {
-  const { items, promo, applyPromo } = useCart();
+  const { items, promo, applyPromo, priceOf } = useCart();
+  const { getProduct } = useProducts();
   const { subtotal, discount, shipping, total } = useTotals(delivery);
   const [code, setCode] = useState("");
   const [err, setErr] = useState(false);
@@ -142,6 +140,7 @@ function EmptyCart() {
 
 export function CartPage() {
   const { items, subtotal } = useCart();
+  const { products } = useProducts();
   const suggestions = products.filter((p) => p.badge === "Хит" && !items.some((i) => i.slug === p.slug)).slice(0, 4);
   return (
     <>
@@ -253,7 +252,10 @@ function Confetti() {
 }
 
 export function CheckoutPage() {
-  const { items, clear } = useCart();
+  const { items, clear, promo } = useCart();
+  const { user } = useAuth();
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [delivery, setDelivery] = useState<"courier" | "pickup">("courier");
@@ -262,6 +264,35 @@ export function CheckoutPage() {
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", comment: "" });
   const [done, setDone] = useState<string | null>(null);
   const { total } = useTotals(delivery);
+
+  // prefill contacts for signed-in customers without overwriting what they typed
+  useEffect(() => {
+    if (!user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm((f) => ({ ...f, name: f.name || user.name, phone: f.phone || user.phone, email: f.email || user.email }));
+  }, [user]);
+
+  const submit = async () => {
+    setSending(true);
+    setError(null);
+    try {
+      const order = await api<Order>("/orders", {
+        ...form,
+        delivery,
+        slot: delivery === "courier" ? slot : "",
+        payment: pay,
+        promo: promo ?? "",
+        items: items.map(({ slug, grams, qty }) => ({ slug, grams, qty })),
+      });
+      setDone(order.number);
+      clear();
+      window.scrollTo({ top: 0 });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось оформить заказ");
+    } finally {
+      setSending(false);
+    }
+  };
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   const go = (n: number) => {
@@ -298,6 +329,7 @@ export function CheckoutPage() {
             className="mt-6 max-w-md text-lg text-white/80"
           >
             Номер заказа <b className="text-mk-yellow">{done}</b>. Мы позвоним вам в течение 10 минут. Ставьте воду кипятиться!
+            {user && " Статус заказа — в личном кабинете."}
           </motion.p>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-10 flex flex-wrap justify-center gap-3">
             <Button href="/recipes" big>
@@ -430,19 +462,20 @@ export function CheckoutPage() {
                   Далее
                 </Button>
               ) : (
-                <Button
-                  variant="yellow"
-                  big
-                  onClick={() => {
-                    setDone("MK-" + Math.floor(100000 + Math.random() * 899999));
-                    clear();
-                    window.scrollTo({ top: 0 });
-                  }}
-                >
-                  {`Оплатить ${formatPrice(total)}`}
+                <Button variant="yellow" big onClick={submit} disabled={sending}>
+                  {sending ? "Отправляем…" : `Оплатить ${formatPrice(total)}`}
                 </Button>
               )}
             </div>
+            {error && <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</p>}
+            {!user && step === 2 && (
+              <p className="mt-4 text-sm text-mk-black/60">
+                <TLink href="/login?next=/checkout" className="font-bold text-mk-blue underline">
+                  Войдите
+                </TLink>
+                , чтобы видеть историю и статус заказов в личном кабинете.
+              </p>
+            )}
           </div>
           <div>
             <Summary delivery={delivery} compact />

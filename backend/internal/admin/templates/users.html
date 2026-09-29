@@ -1,0 +1,31 @@
+{{define "content"}}
+<h1>Пользователи</h1>
+<form class="bar" method="get" action="/admin/users">
+  <input name="q" value="{{.Data.Q}}" placeholder="Поиск по email, имени, телефону" style="max-width:360px">
+  <button class="btn sec">Найти</button>
+</form>
+<table>
+  <tr><th>Имя</th><th>Email</th><th>Телефон</th><th>Регистрация</th><th class="num">Заказов</th><th class="num">Потратил</th><th>Роль</th></tr>
+  {{range .Data.Users}}{{template "user_row" (userRow . $.Me)}}{{end}}
+</table>
+{{end}}
+
+{{define "user_row"}}{{with .U}}
+<tr id="user-{{.ID}}">
+  <td><b>{{.Name}}</b></td>
+  <td>{{.Email}}</td>
+  <td>{{.Phone}}</td>
+  <td class="small">{{date .CreatedAt}}</td>
+  <td class="num">{{.Orders}}</td>
+  <td class="num">{{money .Spent}}</td>
+  <td>
+    {{if eq .Role "admin"}}<span class="pill st-delivering">админ</span>{{else}}<span class="pill">покупатель</span>{{end}}
+    {{if ne .ID $.MeID}}
+    <button class="btn sm {{if eq .Role "admin"}}danger{{else}}sec{{end}}" style="margin-left:6px"
+      hx-post="/admin/users/{{.ID}}/role" hx-vals='{"role":"{{if eq .Role "admin"}}user{{else}}admin{{end}}"}'
+      hx-confirm="{{if eq .Role "admin"}}Снять права администратора с {{.Email}}?{{else}}Сделать {{.Email}} администратором?{{end}}"
+      hx-target="closest tr" hx-swap="outerHTML">{{if eq .Role "admin"}}Снять админа{{else}}Сделать админом{{end}}</button>
+    {{else}}<span class="small muted">(вы)</span>{{end}}
+  </td>
+</tr>
+{{end}}{{end}}

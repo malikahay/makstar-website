@@ -1,0 +1,28 @@
+{{define "content"}}{{with .Data}}
+<p><a href="/admin/orders">← Все заказы</a></p>
+<h1>Заказ {{.Number}}</h1>
+<div class="grid g2">
+  <div>
+    <table>
+      <tr><th>Товар</th><th class="num">Цена</th><th class="num">Кол-во</th><th class="num">Сумма</th></tr>
+      {{range .Items}}<tr><td>{{.ProductName}}, {{.Grams}} г</td><td class="num">{{money .Price}}</td><td class="num">{{.Qty}}</td><td class="num">{{money (mul .Price .Qty)}}</td></tr>{{end}}
+      <tr><td colspan="3" class="muted">Товары</td><td class="num">{{money .Subtotal}}</td></tr>
+      {{if .Discount}}<tr><td colspan="3" class="muted">Промокод {{.Promo}}</td><td class="num">−{{money .Discount}}</td></tr>{{end}}
+      <tr><td colspan="3" class="muted">Доставка</td><td class="num">{{if .Shipping}}{{money .Shipping}}{{else}}бесплатно{{end}}</td></tr>
+      <tr><td colspan="3"><b>Итого</b></td><td class="num"><b>{{money .Total}}</b></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Статус</h2>
+    <div>{{template "status_select" .}}</div>
+    <h2 style="margin-top:22px">Клиент</h2>
+    <p>{{.Name}}<br><a href="tel:{{.Phone}}">{{.Phone}}</a>{{if .Email}}<br>{{.Email}}{{end}}
+    {{if .User}}<br><span class="small muted">аккаунт: {{.User.Email}}</span>{{else}}<br><span class="small muted">без регистрации</span>{{end}}</p>
+    <h2>Доставка</h2>
+    <p>{{if eq .Delivery "pickup"}}Самовывоз{{else}}{{.Address}}<br>{{.Slot}}{{end}}</p>
+    {{if .Comment}}<h2>Комментарий</h2><p>{{.Comment}}</p>{{end}}
+    <h2>Оплата</h2><p>{{.Payment}}</p>
+    <p class="small muted">Создан {{datetime .CreatedAt}}</p>
+  </div>
+</div>
+{{end}}{{end}}

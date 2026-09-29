@@ -2,8 +2,9 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getProduct, type PastaKind } from "@/lib/products";
+import type { PastaKind } from "@/lib/products";
 import { Pasta } from "./Pasta";
+import { useProducts } from "./ProductsProvider";
 
 export type CartItem = { slug: string; grams: number; qty: number };
 
@@ -23,6 +24,7 @@ type CartCtx = {
   drawerOpen: boolean;
   setDrawerOpen: (v: boolean) => void;
   bump: number;
+  priceOf: (item: CartItem) => number;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
@@ -33,16 +35,12 @@ export function useCart() {
   return c;
 }
 
-export function priceOf(item: CartItem) {
-  const p = getProduct(item.slug);
-  return p?.weights.find((w) => w.grams === item.grams)?.price ?? 0;
-}
-
 const KEY = "mk-cart";
 export const PROMO_CODE = "MAKSTAR10";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const { getProduct } = useProducts();
+  const [stored, setItems] = useState<CartItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [flights, setFlights] = useState<Flight[]>([]);
@@ -61,9 +59,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loaded) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify(items));
+      localStorage.setItem(KEY, JSON.stringify(stored));
     } catch {}
-  }, [items, loaded]);
+  }, [stored, loaded]);
+
+  const priceOf = useCallback(
+    (item: CartItem) => getProduct(item.slug)?.weights.find((w) => w.grams === item.grams)?.price ?? 0,
+    [getProduct],
+  );
+  // hide lines whose product or pack size was removed in the admin panel
+  const items = useMemo(() => stored.filter((i) => priceOf(i) > 0), [stored, priceOf]);
 
   const add = useCallback<CartCtx["add"]>((slug, grams, qty = 1, from) => {
     setItems((prev) => {
@@ -90,7 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } else {
       setBump((b) => b + 1);
     }
-  }, []);
+  }, [getProduct]);
 
   const setQty = useCallback((slug: string, grams: number, qty: number) => {
     setItems((prev) =>
@@ -133,8 +138,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       drawerOpen,
       setDrawerOpen,
       bump,
+      priceOf,
     }),
-    [items, subtotal, promo, discount, applyPromo, add, setQty, remove, clear, drawerOpen, bump],
+    [items, subtotal, promo, discount, applyPromo, add, setQty, remove, clear, drawerOpen, bump, priceOf],
   );
 
   return (

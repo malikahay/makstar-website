@@ -2,12 +2,14 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
-import { categoryLabels, methodLabels, products, type Category, type Method } from "@/lib/products";
+import { categoryLabels, methodLabels, type Category, type Method } from "@/lib/products";
+import { useProducts } from "./ProductsProvider";
 import { ProductCard } from "./ProductCard";
 
 type Sort = "popular" | "cheap" | "fast";
 
 export function CatalogGrid() {
+  const { products } = useProducts();
   const [cat, setCat] = useState<Category | "all">("all");
   const [methods, setMethods] = useState<Method[]>([]);
   const [sort, setSort] = useState<Sort>("popular");
@@ -19,7 +21,7 @@ export function CatalogGrid() {
     if (sort === "cheap") l = [...l].sort((a, b) => a.weights[0].price - b.weights[0].price);
     if (sort === "fast") l = [...l].sort((a, b) => a.cookTime - b.cookTime);
     return l;
-  }, [cat, methods, sort]);
+  }, [products, cat, methods, sort]);
 
   const cats: (Category | "all")[] = ["all", "long", "short", "shaped", "soup"];
 

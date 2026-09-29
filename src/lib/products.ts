@@ -46,7 +46,9 @@ export const methodLabels: Record<Method, string> = {
 
 const baseNutrition = { kcal: 344, protein: 12.5, fat: 1.4, carbs: 70.2 };
 
-export const products: Product[] = [
+// Built-in copy of the catalog. The live catalog comes from the Go API (see lib/catalog.ts);
+// this is only used when the API is unreachable, e.g. during a build without the backend.
+export const fallbackProducts: Product[] = [
   {
     slug: "spaghetti",
     kind: "spaghetti",
@@ -228,10 +230,6 @@ export const products: Product[] = [
     bestWith: ["Лагман", "Суп", "Вок"],
   },
 ];
-
-export function getProduct(slug: string) {
-  return products.find((p) => p.slug === slug);
-}
 
 export function formatPrice(n: number) {
   return new Intl.NumberFormat("ru-RU").format(n).replace(/ /g, " ") + " сум";

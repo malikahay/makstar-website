@@ -1,0 +1,76 @@
+{{define "layout"}}<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} — Makstar Admin</title>
+<script src="/admin/static/htmx.min.js" defer></script>
+<style>
+:root{--blue:#1638ff;--blue-ink:#06104f;--yellow:#ffd400;--yellow-soft:#fff1a8;--ink:#0a0a0f;--muted:#6b6f80;--line:#e6e8ef;--bg:#f5f6fa;--card:#fff;--red:#e5383b;--green:#18a058}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:var(--blue-ink);color:#fff;padding:24px 16px;position:sticky;top:0;height:100vh}
+.brand{font-weight:900;font-size:22px;letter-spacing:-.02em;padding:0 10px 24px}.brand span{color:var(--yellow)}
+nav a{display:block;color:#fff;opacity:.75;padding:10px 12px;border-radius:12px;font-weight:600;margin-bottom:2px}
+nav a:hover{opacity:1;text-decoration:none;background:rgba(255,255,255,.08)}
+nav a.on{opacity:1;background:var(--blue)}
+.me{position:absolute;bottom:20px;left:16px;right:16px;font-size:13px;opacity:.7;padding:0 10px}.me a{color:var(--yellow)}
+main{padding:32px 40px;min-width:0}
+h1{font-size:28px;margin:0 0 24px;letter-spacing:-.02em}
+h2{font-size:18px;margin:0 0 14px}
+.card{background:var(--card);border-radius:20px;padding:22px;border:1px solid var(--line)}
+.grid{display:grid;gap:16px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1.4fr 1fr}
+.kpi .l{color:var(--muted);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.kpi .v{font-size:28px;font-weight:800;margin-top:6px;white-space:nowrap}.kpi .s{color:var(--muted);font-size:13px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:20px;overflow:hidden;border:1px solid var(--line)}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#fafbfd}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;white-space:nowrap}
+.muted{color:var(--muted)}.small{font-size:13px}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:var(--line)}
+.st-new{background:var(--yellow);}.st-confirmed{background:#d6ddff;color:var(--blue)}.st-delivering{background:var(--blue);color:#fff}
+.st-done{background:#d7f3e3;color:var(--green)}.st-cancelled{background:#fde2e2;color:var(--red)}
+.btn{display:inline-block;border:0;border-radius:99px;padding:9px 18px;font:inherit;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
+.btn:hover{text-decoration:none;filter:brightness(1.1)}.btn.sec{background:var(--line);color:var(--ink)}.btn.sm{padding:5px 12px;font-size:13px}
+.btn.danger{background:#fde2e2;color:var(--red)}
+select,input,textarea{font:inherit;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;background:#fff;width:100%}
+select:focus,input:focus,textarea:focus{outline:0;border-color:var(--blue)}
+td select{width:auto;padding:4px 8px}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.tabs a{padding:7px 14px;border-radius:99px;font-weight:600;color:var(--ink);background:var(--card);border:1px solid var(--line);font-size:14px}
+.tabs a.on{background:var(--ink);color:#fff;border-color:var(--ink)}.tabs a:hover{text-decoration:none}
+.chart{display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:10px}
+.chart div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px}
+.chart i{display:block;width:100%;background:var(--blue);border-radius:6px 6px 2px 2px;min-height:2px}
+.chart div:last-child i{background:var(--yellow)}
+.chart span{font-size:11px;color:var(--muted)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+.form label{display:block;font-size:13px;font-weight:700;color:var(--muted)}.form label>*{margin-top:4px}
+.form .full{grid-column:1/-1}.checks{display:flex;gap:16px;margin-top:8px}.checks label{display:flex;gap:6px;align-items:center;color:var(--ink);font-weight:600}
+.checks input{width:auto}
+.err{background:#fde2e2;color:var(--red);padding:10px 14px;border-radius:12px;margin-bottom:16px;font-weight:600}
+.off{opacity:.45}
+.htmx-request{opacity:.6;transition:opacity .2s}
+@media (max-width:900px){.shell{grid-template-columns:1fr}aside{position:static;height:auto}.me{position:static;margin-top:12px}.g4{grid-template-columns:1fr 1fr}.g2,.form{grid-template-columns:1fr}main{padding:20px 16px}table{display:block;overflow-x:auto}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside>
+  <div class="brand">MAKSTAR<span>.</span> admin</div>
+  <nav>
+    <a href="/admin" {{if eq .Nav "dash"}}class="on"{{end}}>Статистика</a>
+    <a href="/admin/orders" {{if eq .Nav "orders"}}class="on"{{end}}>Заказы{{if .NewOrders}} · {{.NewOrders}}{{end}}</a>
+    <a href="/admin/products" {{if eq .Nav "products"}}class="on"{{end}}>Товары</a>
+    <a href="/admin/users" {{if eq .Nav "users"}}class="on"{{end}}>Пользователи</a>
+    <a href="/" style="margin-top:18px">← На сайт</a>
+  </nav>
+  <div class="me">{{.Me.Name}}<br>{{.Me.Email}}</div>
+</aside>
+<main>{{template "content" .}}</main>
+</div>
+</body>
+</html>{{end}}

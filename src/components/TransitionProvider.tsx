@@ -14,6 +14,7 @@ import {
 } from "react";
 import { lenisRef, scrollToTop } from "@/lib/lenis";
 import { labelFor } from "@/lib/pageLabels";
+import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
 import { Logo } from "./Logo";
 
@@ -30,6 +31,7 @@ const PASTAS = ["fusilli", "penne", "farfalle", "elbow", "conchiglie"] as const;
 export function TransitionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { getProduct } = useProducts();
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const [ready, setReady] = useState(false);
   const [intro, setIntro] = useState(true);
@@ -95,7 +97,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
       }
       busy.current = true;
       router.prefetch(href);
-      setLabel(labelFor(path));
+      setLabel(labelFor(path, getProduct));
       setPastaIdx((i) => (i + 1) % PASTAS.length);
       lenisRef.current?.stop();
       setBlocking(true);
@@ -108,7 +110,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
       target.current = path;
       router.push(href, { scroll: false });
     },
-    [animate, pathname, router],
+    [animate, pathname, router, getProduct],
   );
 
   // new route committed → lift the curtain

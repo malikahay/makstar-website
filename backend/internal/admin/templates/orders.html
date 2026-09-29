@@ -1,0 +1,25 @@
+{{define "content"}}
+<h1>Заказы</h1>
+<div class="bar tabs">
+  <a href="/admin/orders" {{if eq .Data.Status ""}}class="on"{{end}}>Все</a>
+  {{range .Statuses}}<a href="/admin/orders?status={{.}}" {{if eq $.Data.Status .}}class="on"{{end}}>{{statusLabel .}}</a>{{end}}
+</div>
+{{if .Data.Orders}}
+<table>
+  <tr><th>Номер</th><th>Дата</th><th>Клиент</th><th>Состав</th><th>Доставка</th><th class="num">Сумма</th><th>Статус</th></tr>
+  {{range .Data.Orders}}{{template "order_row" .}}{{end}}
+</table>
+{{else}}<div class="card muted">Заказов нет.</div>{{end}}
+{{end}}
+
+{{define "order_row"}}
+<tr id="order-{{.ID}}">
+  <td><a href="/admin/orders/{{.ID}}"><b>{{.Number}}</b></a></td>
+  <td class="small">{{datetime .CreatedAt}}</td>
+  <td>{{.Name}}<div class="small muted">{{.Phone}}{{if .User}} · {{.User.Email}}{{end}}</div></td>
+  <td class="small">{{range .Items}}{{.ProductName}} {{.Grams}} г × {{.Qty}}<br>{{end}}</td>
+  <td class="small">{{if eq .Delivery "pickup"}}Самовывоз{{else}}{{.Address}}<div class="muted">{{.Slot}}</div>{{end}}</td>
+  <td class="num"><b>{{money .Total}}</b><div class="small muted">{{.Payment}}</div></td>
+  <td>{{template "status_select" .}}</td>
+</tr>
+{{end}}

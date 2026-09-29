@@ -9,7 +9,8 @@ import {
   type MotionValue,
 } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { products, type PastaKind } from "@/lib/products";
+import type { PastaKind } from "@/lib/products";
+import { useProducts } from "./ProductsProvider";
 import { recipes } from "@/lib/recipes";
 import { Arrow, Button } from "./Button";
 import { Star } from "./Logo";
@@ -68,6 +69,7 @@ function Piece({
 }
 
 function Hero() {
+  const { products } = useProducts();
   const ref = useRef<HTMLElement>(null);
   const ready = usePageReady();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -85,7 +87,7 @@ function Hero() {
   const packRX = useTransform(my, (v) => v * -20);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
-  const penne = products.find((p) => p.slug === "penne")!;
+  const penne = products.find((p) => p.slug === "penne") ?? products[0];
 
   return (
     <section
@@ -236,6 +238,7 @@ function Manifesto() {
 /* ───────────────────────── LINEUP (horizontal scroll) ───────────────────────── */
 
 function Lineup() {
+  const { products } = useProducts();
   const section = useRef<HTMLElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const [distance, setDistance] = useState(0);

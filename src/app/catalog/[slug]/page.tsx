@@ -1,21 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductView } from "@/components/ProductView";
-import { getProduct, products } from "@/lib/products";
+import { getProducts } from "@/lib/catalog";
 
-export function generateStaticParams() {
-  return products.map((p) => ({ slug: p.slug }));
+export const revalidate = 10;
+
+async function findProduct(slug: string) {
+  return (await getProducts()).find((p) => p.slug === slug);
+}
+
+export async function generateStaticParams() {
+  return (await getProducts()).map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps<"/catalog/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const p = getProduct(slug);
+  const p = await findProduct(slug);
   return p ? { title: `${p.name} ${p.number}`, description: p.tagline } : {};
 }
 
 export default async function Page({ params }: PageProps<"/catalog/[slug]">) {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await findProduct(slug);
   if (!product) notFound();
   return <ProductView key={product.slug} product={product} />;
 }

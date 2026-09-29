@@ -1,0 +1,5 @@
+{{define "status_select"}}
+<select name="status" hx-post="/admin/orders/{{.ID}}/status" hx-trigger="change" hx-target="this" hx-swap="outerHTML" class="pill st-{{.Status}}">
+  {{$cur := .Status}}{{range statuses}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{statusLabel .}}</option>{{end}}
+</select>
+{{end}}

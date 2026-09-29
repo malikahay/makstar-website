@@ -1,0 +1,36 @@
+{{define "content"}}{{with .Data}}
+<h1>Статистика</h1>
+<div class="grid g4">
+  <div class="card kpi"><div class="l">Выручка</div><div class="v">{{money .Revenue}}</div><div class="s">сегодня {{money .RevenueToday}}</div></div>
+  <div class="card kpi"><div class="l">Заказы</div><div class="v">{{.Orders}}</div><div class="s">сегодня {{.OrdersToday}}</div></div>
+  <div class="card kpi"><div class="l">Средний чек</div><div class="v">{{money .AvgCheck}}</div><div class="s">без отменённых</div></div>
+  <div class="card kpi"><div class="l">Пользователи</div><div class="v">{{.Users}}</div><div class="s">+{{.UsersWeek}} за неделю</div></div>
+</div>
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h2>Выручка за 14 дней</h2>
+    <div class="chart">
+      {{$max := maxRevenue .Days}}{{range .Days}}
+      <div title="{{date .Day}}: {{money .Revenue}}, заказов {{.Orders}}"><i style="height:{{pct .Revenue $max}}%"></i><span>{{.Day.Format "02"}}</span></div>
+      {{end}}
+    </div>
+  </div>
+  <div class="card">
+    <h2>Заказы по статусам</h2>
+    <table style="border:0">
+      {{$by := .ByStatus}}{{range $.Statuses}}
+      <tr><td><a href="/admin/orders?status={{.}}"><span class="pill st-{{.}}">{{statusLabel .}}</span></a></td><td class="num"><b>{{index $by .}}</b></td></tr>
+      {{end}}
+    </table>
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2>Топ товаров</h2>
+  {{if .TopProducts}}
+  <table style="border:0">
+    <tr><th>Товар</th><th class="num">Продано, шт</th><th class="num">Выручка</th></tr>
+    {{range .TopProducts}}<tr><td>{{.Name}}</td><td class="num">{{.Qty}}</td><td class="num">{{money .Revenue}}</td></tr>{{end}}
+  </table>
+  {{else}}<p class="muted">Пока нет заказов.</p>{{end}}
+</div>
+{{end}}{{end}}

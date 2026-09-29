@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { formatPrice, methodLabels, products, type Method, type Product } from "@/lib/products";
+import { formatPrice, methodLabels, type Method, type Product } from "@/lib/products";
 import { recipes } from "@/lib/recipes";
 import { Arrow, Button } from "./Button";
 import { QtyStepper } from "./CartBits";
@@ -10,6 +10,7 @@ import { useCart } from "./CartProvider";
 import { Pack } from "./Pack";
 import { Pasta } from "./Pasta";
 import { ProductCard } from "./ProductCard";
+import { useProducts } from "./ProductsProvider";
 import { Plate } from "./Recipes";
 import { TLink, usePageReady } from "./TransitionProvider";
 import { Reveal, SplitText, Tilt } from "./motion";
@@ -105,6 +106,7 @@ function Timer({ minutes }: { minutes: number }) {
 }
 
 export function ProductView({ product }: { product: Product }) {
+  const { products } = useProducts();
   const { add } = useCart();
   const ready = usePageReady();
   const [weight, setWeight] = useState(product.weights[0].grams);

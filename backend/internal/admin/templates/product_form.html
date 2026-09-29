@@ -1,0 +1,39 @@
+{{define "content"}}
+<p><a href="/admin/products">← Все товары</a></p>
+<h1>{{if .Data.P.ID}}{{.Data.P.Name}}{{else}}Новый товар{{end}}</h1>
+{{template "product_form" .Data}}
+{{end}}
+
+{{define "product_form"}}
+<form class="card" hx-post="{{if .P.ID}}/admin/products/{{.P.ID}}{{else}}/admin/products/new{{end}}" hx-swap="outerHTML">
+  {{if .Err}}<div class="err">{{.Err}}</div>{{end}}
+  <div class="form">
+    <label>Название<input name="name" value="{{.P.Name}}" required></label>
+    <label>Латинское название<input name="latin" value="{{.P.Latin}}"></label>
+    <label>Адрес (slug) — латиница, цифры, дефис<input name="slug" value="{{.P.Slug}}" required pattern="[a-z0-9-]+"></label>
+    <label>Номер<input name="number" value="{{.P.Number}}" placeholder="№11"></label>
+    <label>Форма (иллюстрация)
+      <select name="kind">{{$k := .P.Kind}}{{range kinds}}<option value="{{.}}" {{if eq . $k}}selected{{end}}>{{.}}</option>{{end}}</select>
+    </label>
+    <label>Категория
+      <select name="category">{{$c := .P.Category}}{{range categories}}<option value="{{.}}" {{if eq . $c}}selected{{end}}>{{categoryLabel .}}</option>{{end}}</select>
+    </label>
+    <div class="full"><label>Способы приготовления</label>
+      <div class="checks">{{$p := .P}}{{range methods}}<label><input type="checkbox" name="methods" value="{{.}}" {{if hasMethod $p .}}checked{{end}}> {{methodLabel .}}</label>{{end}}</div>
+    </div>
+    <label class="full">Слоган<input name="tagline" value="{{.P.Tagline}}"></label>
+    <label class="full">Описание<textarea name="description" rows="4">{{.P.Description}}</textarea></label>
+    <label>Фасовки и цены — по строке «граммы = цена в сумах»<textarea name="weights" rows="3" placeholder="400 = 12900">{{weightsText .P}}</textarea></label>
+    <label>С чем подавать — по одному на строку<textarea name="best_with" rows="3">{{lines .P.BestWith.V}}</textarea></label>
+    <label>Время варки, мин<input name="cook_time" type="number" min="0" value="{{.P.CookTime}}"></label>
+    <label>Бейдж (Хит, Новинка…)<input name="badge" value="{{.P.Badge}}"></label>
+    <label>Ккал / 100 г<input name="kcal" type="number" step="0.1" value="{{.P.Nutrition.V.Kcal}}"></label>
+    <label>Белки, г<input name="protein" type="number" step="0.1" value="{{.P.Nutrition.V.Protein}}"></label>
+    <label>Жиры, г<input name="fat" type="number" step="0.1" value="{{.P.Nutrition.V.Fat}}"></label>
+    <label>Углеводы, г<input name="carbs" type="number" step="0.1" value="{{.P.Nutrition.V.Carbs}}"></label>
+    <label>Порядок сортировки<input name="sort" type="number" value="{{.P.Sort}}"></label>
+    <div><label>&nbsp;</label><div class="checks"><label><input type="checkbox" name="active" value="1" {{if .P.Active}}checked{{end}}> Показывать на сайте</label></div></div>
+  </div>
+  <p style="margin-top:22px"><button class="btn">Сохранить</button> <a class="btn sec" href="/admin/products">Отмена</a></p>
+</form>
+{{end}}

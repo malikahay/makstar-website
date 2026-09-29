@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { FREE_SHIPPING_FROM, formatPrice, getProduct } from "@/lib/products";
-import { priceOf, useCart, type CartItem } from "./CartProvider";
+import { FREE_SHIPPING_FROM, formatPrice } from "@/lib/products";
+import { useCart, type CartItem } from "./CartProvider";
+import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
 import { TLink } from "./TransitionProvider";
 
@@ -45,7 +46,8 @@ export function QtyStepper({
 }
 
 export function CartLine({ item, onNavigate }: { item: CartItem; onNavigate?: () => void }) {
-  const { setQty, remove } = useCart();
+  const { setQty, remove, priceOf } = useCart();
+  const { getProduct } = useProducts();
   const p = getProduct(item.slug);
   if (!p) return null;
   return (
