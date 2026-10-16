@@ -10,6 +10,8 @@ import { ProductsProvider } from "@/components/ProductsProvider";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { TransitionProvider } from "@/components/TransitionProvider";
 import { getProducts } from "@/lib/catalog";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { getDict, getLang } from "@/i18n/server";
 import "./globals.css";
 
 const unbounded = Unbounded({
@@ -23,38 +25,40 @@ const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Makstar — макароны, которые хочется варить, жарить и запекать",
-    template: "%s — Makstar",
-  },
-  description:
-    "Makstar — макароны из твёрдых сортов пшеницы. Спагетти, перья, спирали, рожки, лапша и ещё 5 форм. Рецепты, доставка и оплата онлайн.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return {
+    title: { default: t.meta.title, template: "%s — Makstar" },
+    description: t.meta.description,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1638ff",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const products = await getProducts();
+  const lang = await getLang();
+  const products = await getProducts(lang);
   return (
-    <html lang="ru" className={`${unbounded.variable} ${manrope.variable} antialiased`}>
+    <html lang={lang} className={`${unbounded.variable} ${manrope.variable} antialiased`}>
       <body className="min-h-screen">
         <SmoothScroll />
-        <ProductsProvider products={products}>
-          <AuthProvider>
-            <CartProvider>
-              <TransitionProvider>
-                <Header />
-                <main>{children}</main>
-                <Footer />
-                <CartDrawer />
-                <Cursor />
-              </TransitionProvider>
-            </CartProvider>
-          </AuthProvider>
-        </ProductsProvider>
+        <LocaleProvider lang={lang}>
+          <ProductsProvider products={products}>
+            <AuthProvider>
+              <CartProvider>
+                <TransitionProvider>
+                  <Header />
+                  <main>{children}</main>
+                  <Footer />
+                  <CartDrawer />
+                  <Cursor />
+                </TransitionProvider>
+              </CartProvider>
+            </AuthProvider>
+          </ProductsProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -5,21 +5,63 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { useCart } from "./CartProvider";
+import { LANGS } from "@/i18n/config";
+import type { Dict } from "@/i18n";
+import { useLocale, useT } from "./LocaleProvider";
+import { SITE } from "@/lib/site";
 import { Logo } from "./Logo";
 import { TLink } from "./TransitionProvider";
 
-export const NAV = [
-  { href: "/catalog", label: "Каталог" },
-  { href: "/recipes", label: "Рецепты" },
-  { href: "/about", label: "О нас" },
-  { href: "/delivery", label: "Доставка и оплата" },
-  { href: "/contacts", label: "Контакты" },
-];
+const NAV_ITEMS = [
+  { href: "/catalog", key: "catalog" },
+  { href: "/recipes", key: "recipes" },
+  { href: "/about", key: "about" },
+  { href: "/delivery", key: "delivery" },
+  { href: "/contacts", key: "contacts" },
+] as const;
+
+export function navItems(t: Dict) {
+  return NAV_ITEMS.map((n) => ({ href: n.href, label: t.header.nav[n.key] }));
+}
+
+/** RU | UZ pill; the choice is stored in a cookie and the page re-renders server-side. */
+export function LangSwitch({ dark = false, className = "" }: { dark?: boolean; className?: string }) {
+  const { lang, setLang, switching, t } = useLocale();
+  return (
+    <div
+      role="group"
+      aria-label={t.header.language}
+      className={`relative flex h-11 items-center rounded-full p-1 text-xs font-bold uppercase transition-opacity ${
+        dark ? "bg-mk-black/5 text-mk-black" : "bg-white/15 text-white"
+      } ${switching ? "opacity-60" : ""} ${className}`}
+    >
+      {LANGS.map((l) => (
+        <button
+          key={l}
+          onClick={() => l !== lang && setLang(l)}
+          aria-pressed={l === lang}
+          className="relative grid h-9 w-10 place-items-center rounded-full"
+        >
+          {l === lang && (
+            <motion.span
+              layoutId="lang-pill"
+              className="absolute inset-0 rounded-full bg-mk-yellow"
+              transition={{ type: "spring", stiffness: 400, damping: 32 }}
+            />
+          )}
+          <span className={`relative ${l === lang ? "text-mk-black" : ""}`}>{l}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Header() {
   const pathname = usePathname();
   const { count, bump, setDrawerOpen } = useCart();
   const { user } = useAuth();
+  const t = useT();
+  const NAV = navItems(t);
   const accountHref = user ? "/account" : "/login";
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
@@ -56,7 +98,7 @@ export function Header() {
                 : "text-white"
           }`}
         >
-          <TLink href="/" className="text-xl md:text-2xl" aria-label="Makstar — на главную" onClick={() => setMenu(false)}>
+          <TLink href="/" className="text-xl md:text-2xl" aria-label={t.header.home} onClick={() => setMenu(false)}>
             <Logo />
           </TLink>
 
@@ -85,13 +127,25 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <LangSwitch dark={solid || menu} className="hidden sm:flex" />
+            {user?.role === "admin" && (
+              // plain <a>: /admin is served by the Go backend, not a Next route
+              <a
+                href="/admin"
+                className={`hidden h-11 items-center rounded-full px-4 text-sm font-bold transition-colors sm:flex ${
+                  solid || menu ? "bg-mk-black text-white" : "bg-mk-yellow text-mk-black"
+                }`}
+              >
+                {t.header.admin}
+              </a>
+            )}
             <TLink
               href={accountHref}
               className={`relative grid h-11 w-11 place-items-center rounded-full transition-colors ${
                 solid || menu ? "bg-mk-black/5 text-mk-black" : "bg-white/15 text-white"
               }`}
-              aria-label={user ? `Личный кабинет: ${user.name}` : "Войти"}
-              title={user ? user.name : "Войти"}
+              aria-label={user ? t.header.accountAria(user.name) : t.header.login}
+              title={user ? user.name : t.header.login}
             >
               <UserIcon />
               {user && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-mk-yellow ring-2 ring-current" />}
@@ -102,7 +156,7 @@ export function Header() {
               className={`relative flex h-11 items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors ${
                 solid || menu ? "bg-mk-blue text-white" : "bg-white text-mk-blue"
               }`}
-              aria-label={`Корзина, товаров: ${count}`}
+              aria-label={t.header.cartAria(count)}
             >
               <motion.span
                 key={bump}
@@ -112,7 +166,7 @@ export function Header() {
               >
                 <BagIcon />
               </motion.span>
-              <span className="hidden sm:inline">Корзина</span>
+              <span className="hidden sm:inline">{t.header.cart}</span>
               <AnimatePresence mode="popLayout">
                 <motion.span
                   key={count}
@@ -130,7 +184,7 @@ export function Header() {
               className={`relative grid h-11 w-11 place-items-center rounded-full lg:hidden ${
                 solid || menu ? "bg-mk-black text-white" : "bg-mk-yellow text-mk-black"
               }`}
-              aria-label="Меню"
+              aria-label={t.header.menu}
               aria-expanded={menu}
             >
               <motion.span
@@ -156,7 +210,7 @@ export function Header() {
             transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
           >
             <nav className="flex flex-col gap-2">
-              {[{ href: "/", label: "Главная" }, ...NAV, { href: accountHref, label: user ? "Кабинет" : "Войти" }].map((n, i) => (
+              {[{ href: "/", label: t.pages.home }, ...NAV, { href: accountHref, label: user ? t.header.account : t.header.login }].map((n, i) => (
                 <div key={n.href} className="overflow-hidden">
                   <motion.div
                     initial={{ y: "100%" }}
@@ -182,8 +236,14 @@ export function Header() {
               animate={{ opacity: 1, transition: { delay: 0.6 } }}
               exit={{ opacity: 0 }}
             >
-              <a href="tel:+998994003010">+998 (99) 400-30-10</a>
-              <a href="mailto:hello@makstar.uz">hello@makstar.uz</a>
+              <LangSwitch dark className="mb-3 w-fit" />
+              {user?.role === "admin" && (
+                <a href="/admin" className="mb-3 w-fit rounded-full bg-mk-black px-5 py-2.5 text-white">
+                  {t.header.adminLong}
+                </a>
+              )}
+              <a href={SITE.phoneHref}>{SITE.phone}</a>
+              <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
             </motion.div>
           </motion.div>
         )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { FREE_SHIPPING_FROM, formatPrice } from "@/lib/products";
+import { FREE_SHIPPING_FROM } from "@/lib/products";
+import { useFormatPrice, useT } from "./LocaleProvider";
 import { useCart, type CartItem } from "./CartProvider";
 import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
@@ -16,12 +17,13 @@ export function QtyStepper({
   onChange: (v: number) => void;
   dark?: boolean;
 }) {
+  const t = useT();
   const btn = `grid h-9 w-9 place-items-center rounded-full text-lg font-bold transition-colors ${
     dark ? "hover:bg-white/15" : "hover:bg-mk-yellow"
   }`;
   return (
     <div className={`inline-flex items-center rounded-full ${dark ? "bg-white/10" : "bg-mk-black/5"} p-1`}>
-      <button className={btn} onClick={() => onChange(value - 1)} aria-label="Меньше">
+      <button className={btn} onClick={() => onChange(value - 1)} aria-label={t.common.less}>
         −
       </button>
       <div className="relative w-8 overflow-hidden text-center font-display font-bold tabular-nums">
@@ -38,7 +40,7 @@ export function QtyStepper({
           </motion.span>
         </AnimatePresence>
       </div>
-      <button className={btn} onClick={() => onChange(value + 1)} aria-label="Больше">
+      <button className={btn} onClick={() => onChange(value + 1)} aria-label={t.common.more}>
         +
       </button>
     </div>
@@ -48,6 +50,8 @@ export function QtyStepper({
 export function CartLine({ item, onNavigate }: { item: CartItem; onNavigate?: () => void }) {
   const { setQty, remove, priceOf } = useCart();
   const { getProduct } = useProducts();
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const p = getProduct(item.slug);
   if (!p) return null;
   return (
@@ -62,23 +66,28 @@ export function CartLine({ item, onNavigate }: { item: CartItem; onNavigate?: ()
       <TLink
         href={`/catalog/${p.slug}`}
         onClick={onNavigate}
-        className="group grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-mk-blue"
+        className="group grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-mk-blue"
       >
-        <Pasta kind={p.kind} className="h-14 w-14 transition-transform duration-500 group-hover:rotate-45 group-hover:scale-110" />
+        {p.image ? (
+          // eslint-disable-next-line @next/next/no-img-element -- served by the Go API
+          <img src={p.image} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        ) : (
+          <Pasta kind={p.kind} className="h-14 w-14 transition-transform duration-500 group-hover:rotate-45 group-hover:scale-110" />
+        )}
       </TLink>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-display text-lg font-bold leading-tight">{p.name}</div>
             <div className="text-sm text-mk-black/50">
-              {item.grams} г · {formatPrice(priceOf(item))}
+              {item.grams} {t.g} · {formatPrice(priceOf(item))}
             </div>
           </div>
           <button
             onClick={() => remove(item.slug, item.grams)}
             className="text-xs font-bold uppercase tracking-wider text-mk-black/40 transition-colors hover:text-mk-blue"
           >
-            Удалить
+            {t.cart.remove}
           </button>
         </div>
         <div className="mt-2 flex items-center justify-between">
@@ -91,6 +100,8 @@ export function CartLine({ item, onNavigate }: { item: CartItem; onNavigate?: ()
 }
 
 export function FreeShippingBar({ subtotal }: { subtotal: number }) {
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const left = Math.max(0, FREE_SHIPPING_FROM - subtotal);
   const pct = Math.min(100, (subtotal / FREE_SHIPPING_FROM) * 100);
   return (
@@ -98,10 +109,11 @@ export function FreeShippingBar({ subtotal }: { subtotal: number }) {
       <div className="mb-2 text-sm font-semibold">
         {left > 0 ? (
           <>
-            До бесплатной доставки — <span className="text-mk-blue">{formatPrice(left)}</span>
+            {t.cart.toFree}
+            <span className="text-mk-blue">{formatPrice(left)}</span>
           </>
         ) : (
-          <span className="text-mk-blue">Доставка бесплатно! 🎉</span>
+          <span className="text-mk-blue">{t.cart.freeShipping}</span>
         )}
       </div>
       <div className="relative h-3 overflow-hidden rounded-full bg-mk-black/10">

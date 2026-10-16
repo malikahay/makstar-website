@@ -5,35 +5,65 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/mail"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/malikahay/makstar/backend/internal/auth"
+	"github.com/malikahay/makstar/backend/internal/notify"
+	"github.com/malikahay/makstar/backend/internal/ratelimit"
 	"github.com/malikahay/makstar/backend/internal/store"
 )
 
 type API struct {
-	store *store.Store
-	auth  *auth.Auth
+	store   *store.Store
+	auth    *auth.Auth
+	tg      *notify.Telegram
+	siteURL string // public site address for links in notifications; may be empty
 }
 
-func Routes(s *store.Store, a *auth.Auth) http.Handler {
-	h := &API{store: s, auth: a}
+func Routes(s *store.Store, a *auth.Auth, tg *notify.Telegram, siteURL string) http.Handler {
+	h := &API{store: s, auth: a, tg: tg, siteURL: strings.TrimSuffix(siteURL, "/")}
 	r := chi.NewRouter()
 	r.Use(requireJSON)
 	r.Get("/products", h.products)
 	r.Get("/products/{slug}", h.product)
-	r.Post("/auth/register", h.register)
-	r.Post("/auth/login", h.login)
+	r.Get("/images/{id}", h.image)
+	r.With(limit(ratelimit.New(20, time.Hour))).Post("/auth/register", h.register)
+	r.With(limit(ratelimit.New(10, 15*time.Minute))).Post("/auth/login", h.login)
 	r.Post("/auth/logout", h.logout)
 	r.Get("/auth/me", h.me)
-	r.Post("/orders", h.createOrder)
+	r.With(limit(ratelimit.New(20, time.Hour))).Post("/orders", h.createOrder)
+	r.With(limit(ratelimit.New(10, time.Hour))).Post("/messages", h.createMessage)
 	r.Get("/orders/my", h.myOrders)
-	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeErr(w, http.StatusNotFound, "Не найдено") })
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeErr(w, r, http.StatusNotFound, "Не найдено")
+	})
 	return r
+}
+
+// limit caps requests per client IP. The IP comes from RemoteAddr, which chi's RealIP
+// middleware fills from X-Forwarded-For / X-Real-IP set by the reverse proxy.
+func limit(l *ratelimit.Limiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := r.RemoteAddr
+			if host, _, err := net.SplitHostPort(ip); err == nil {
+				ip = host
+			}
+			if ok, retry := l.Allow(ip); !ok {
+				w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+				writeErr(w, r, http.StatusTooManyRequests, "Слишком много попыток. Попробуйте через %d мин.", int(retry.Minutes())+1)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // requireJSON rejects state-changing requests that aren't JSON. Browsers can't send a
@@ -42,7 +72,7 @@ func requireJSON(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead &&
 			!strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-			writeErr(w, http.StatusUnsupportedMediaType, "Ожидается JSON")
+			writeErr(w, r, http.StatusUnsupportedMediaType, "Ожидается JSON")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -55,19 +85,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+func writeErr(w http.ResponseWriter, r *http.Request, status int, msg string, args ...any) {
+	writeJSON(w, status, map[string]string{"error": tr(r, msg, args...)})
 }
 
 func internal(w http.ResponseWriter, r *http.Request, err error) {
 	slog.Error("api", "path", r.URL.Path, "err", err)
-	writeErr(w, http.StatusInternalServerError, "Что-то пошло не так, попробуйте ещё раз")
+	writeErr(w, r, http.StatusInternalServerError, "Что-то пошло не так, попробуйте ещё раз")
 }
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		writeErr(w, http.StatusBadRequest, "Неверный формат запроса")
+		writeErr(w, r, http.StatusBadRequest, "Неверный формат запроса")
 		return false
 	}
 	return true
@@ -79,19 +109,40 @@ func (h *API) products(w http.ResponseWriter, r *http.Request) {
 		internal(w, r, err)
 		return
 	}
+	lang := langOf(r)
+	for i := range ps {
+		ps[i] = ps[i].Localized(lang)
+	}
 	writeJSON(w, http.StatusOK, ps)
 }
 
 func (h *API) product(w http.ResponseWriter, r *http.Request) {
 	p, err := h.store.ActiveProductBySlug(r.Context(), chi.URLParam(r, "slug"))
 	if errors.Is(err, store.ErrNotFound) {
-		writeErr(w, http.StatusNotFound, "Товар не найден")
+		writeErr(w, r, http.StatusNotFound, "Товар не найден")
 		return
 	} else if err != nil {
 		internal(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, p)
+	writeJSON(w, http.StatusOK, p.Localized(langOf(r)))
+}
+
+// image serves an uploaded product photo. Each upload gets a new id, so the response never changes.
+func (h *API) image(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	img, err := h.store.ImageByID(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeErr(w, r, http.StatusNotFound, "Не найдено")
+		return
+	} else if err != nil {
+		internal(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", img.ContentType)
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(img.Data)
 }
 
 var dummyHash, _ = auth.HashPassword("makstar-timing-dummy")
@@ -110,16 +161,16 @@ func (h *API) register(w http.ResponseWriter, r *http.Request) {
 	}
 	in.Email, in.Name, in.Phone = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name), strings.TrimSpace(in.Phone)
 	if _, err := mail.ParseAddress(in.Email); err != nil || strings.ContainsAny(in.Email, " <>") {
-		writeErr(w, http.StatusBadRequest, "Неверный email")
+		writeErr(w, r, http.StatusBadRequest, "Неверный email")
 		return
 	}
 	if len([]rune(in.Name)) < 2 {
-		writeErr(w, http.StatusBadRequest, "Укажите имя")
+		writeErr(w, r, http.StatusBadRequest, "Укажите имя")
 		return
 	}
 	// bcrypt only uses the first 72 bytes
 	if len(in.Password) < 8 || len(in.Password) > 72 {
-		writeErr(w, http.StatusBadRequest, "Пароль должен быть от 8 до 72 символов")
+		writeErr(w, r, http.StatusBadRequest, "Пароль должен быть от 8 до 72 символов")
 		return
 	}
 	hash, err := auth.HashPassword(in.Password)
@@ -129,7 +180,7 @@ func (h *API) register(w http.ResponseWriter, r *http.Request) {
 	}
 	u := &store.User{Email: in.Email, Name: in.Name, Phone: in.Phone, PasswordHash: hash, Role: store.RoleUser}
 	if err := h.store.CreateUser(r.Context(), u); errors.Is(err, store.ErrEmailTaken) {
-		writeErr(w, http.StatusConflict, "Этот email уже зарегистрирован")
+		writeErr(w, r, http.StatusConflict, "Этот email уже зарегистрирован")
 		return
 	} else if err != nil {
 		internal(w, r, err)
@@ -154,11 +205,11 @@ func (h *API) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if u == nil {
 		auth.CheckPassword(dummyHash, in.Password) // equalize timing so emails can't be probed
-		writeErr(w, http.StatusUnauthorized, "Неверный email или пароль")
+		writeErr(w, r, http.StatusUnauthorized, "Неверный email или пароль")
 		return
 	}
 	if !auth.CheckPassword(u.PasswordHash, in.Password) {
-		writeErr(w, http.StatusUnauthorized, "Неверный email или пароль")
+		writeErr(w, r, http.StatusUnauthorized, "Неверный email или пароль")
 		return
 	}
 	if err := h.auth.SetSession(w, u); err != nil {
@@ -176,7 +227,7 @@ func (h *API) logout(w http.ResponseWriter, _ *http.Request) {
 func (h *API) me(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
 	if u == nil {
-		writeErr(w, http.StatusUnauthorized, "Не авторизован")
+		writeErr(w, r, http.StatusUnauthorized, "Не авторизован")
 		return
 	}
 	writeJSON(w, http.StatusOK, u)
@@ -187,6 +238,7 @@ func (h *API) createOrder(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
+	in.Lang = langOf(r)
 	var uid *int64
 	if u := auth.UserFrom(r.Context()); u != nil {
 		uid = &u.ID
@@ -194,19 +246,38 @@ func (h *API) createOrder(w http.ResponseWriter, r *http.Request) {
 	o, err := h.store.CreateOrder(r.Context(), in, uid)
 	var ve store.ValidationError
 	if errors.As(err, &ve) {
-		writeErr(w, http.StatusBadRequest, ve.Msg)
+		writeErr(w, r, http.StatusBadRequest, ve.Msg, ve.Args...)
 		return
 	} else if err != nil {
 		internal(w, r, err)
 		return
 	}
+	h.notifyOrder(o)
 	writeJSON(w, http.StatusCreated, o)
+}
+
+func (h *API) createMessage(w http.ResponseWriter, r *http.Request) {
+	var in store.MessageInput
+	if !decode(w, r, &in) {
+		return
+	}
+	m, err := h.store.CreateMessage(r.Context(), in)
+	var ve store.ValidationError
+	if errors.As(err, &ve) {
+		writeErr(w, r, http.StatusBadRequest, ve.Msg, ve.Args...)
+		return
+	} else if err != nil {
+		internal(w, r, err)
+		return
+	}
+	h.notifyMessage(m)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *API) myOrders(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
 	if u == nil {
-		writeErr(w, http.StatusUnauthorized, "Не авторизован")
+		writeErr(w, r, http.StatusUnauthorized, "Не авторизован")
 		return
 	}
 	os, err := h.store.OrdersByUser(r.Context(), u.ID)

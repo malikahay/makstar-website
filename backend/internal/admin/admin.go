@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -50,6 +51,7 @@ type page struct {
 	Title, Nav string
 	Me         *store.User
 	NewOrders  int64
+	OpenMsgs   int64
 	Statuses   []string
 	Data       any
 }
@@ -117,7 +119,7 @@ func New(s *store.Store) (*Admin, error) {
 		return nil, err
 	}
 	a.parts = template.Must(base.Clone())
-	for _, name := range []string{"dashboard", "orders", "order", "products", "product_form", "users"} {
+	for _, name := range []string{"dashboard", "orders", "order", "products", "product_form", "users", "messages"} {
 		t, err := template.Must(base.Clone()).ParseFS(templatesFS, "templates/"+name+".html")
 		if err != nil {
 			return nil, fmt.Errorf("template %s: %w", name, err)
@@ -147,6 +149,8 @@ func (a *Admin) Routes() http.Handler {
 		r.Get("/products/{id}", a.productForm)
 		r.Post("/products/{id}", a.productSave)
 		r.Post("/products/{id}/active", a.productActive)
+		r.Get("/messages", a.messages)
+		r.Post("/messages/{id}/done", a.messageDone)
 		r.Get("/users", a.users)
 		r.Post("/users/{id}/role", a.userRole)
 	})
@@ -180,6 +184,7 @@ func (a *Admin) requireAdmin(next http.Handler) http.Handler {
 func (a *Admin) render(w http.ResponseWriter, r *http.Request, name, title, nav string, data any) {
 	p := page{Title: title, Nav: nav, Me: auth.UserFrom(r.Context()), Statuses: store.OrderStatuses, Data: data}
 	p.NewOrders, _ = a.store.CountOrders(r.Context(), store.StatusNew)
+	p.OpenMsgs, _ = a.store.CountOpenMessages(r.Context())
 	var buf bytes.Buffer
 	if err := a.pages[name].ExecuteTemplate(&buf, "layout", p); err != nil {
 		fail(w, fmt.Errorf("render %s: %w", name, err))
@@ -296,27 +301,102 @@ func (a *Admin) productSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := r.ParseForm(); err != nil {
+	r.Body = http.MaxBytesReader(w, r.Body, maxImageSize+1<<20)
+	if err := r.ParseMultipartForm(maxImageSize); err != nil {
+		if _, tooBig := errors.AsType[*http.MaxBytesError](err); tooBig {
+			a.partial(w, "product_form", formData{P: p, Err: "Фото слишком большое — максимум 5 МБ"})
+			return
+		}
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
+	oldImage := p.ImageID
 	msg := fillProduct(p, r.PostForm)
+	if msg == "" {
+		data, contentType, m, err := readImage(r)
+		if err != nil {
+			fail(w, err)
+			return
+		}
+		msg = m
+		switch {
+		case msg != "":
+		case data != nil:
+			id, err := a.store.CreateImage(r.Context(), contentType, data)
+			if err != nil {
+				fail(w, err)
+				return
+			}
+			p.ImageID = &id
+		case r.PostForm.Get("remove_image") == "1":
+			p.ImageID = nil
+		}
+	}
 	if msg == "" {
 		if err := a.store.SaveProduct(r.Context(), p); err != nil {
 			if strings.Contains(err.Error(), "products_slug_key") {
 				msg = "Товар с таким адресом (slug) уже есть"
 			} else {
+				a.dropImage(r, p.ImageID, oldImage)
 				fail(w, err)
 				return
 			}
 		}
 	}
 	if msg != "" {
+		a.dropImage(r, p.ImageID, oldImage)
+		p.ImageID = oldImage
 		a.partial(w, "product_form", formData{P: p, Err: msg})
 		return
 	}
+	a.dropImage(r, oldImage, p.ImageID)
 	w.Header().Set("HX-Redirect", "/admin/products")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+const maxImageSize = 5 << 20
+
+var imageTypes = []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+// readImage returns the uploaded photo, or nil data if none was chosen. A non-empty msg
+// means the file was rejected.
+func readImage(r *http.Request) (data []byte, contentType, msg string, err error) {
+	f, _, err := r.FormFile("image")
+	if errors.Is(err, http.ErrMissingFile) {
+		return nil, "", "", nil
+	} else if err != nil {
+		return nil, "", "", err
+	}
+	defer f.Close()
+	if data, err = io.ReadAll(f); err != nil || len(data) == 0 {
+		return nil, "", "", err
+	}
+	contentType = http.DetectContentType(data)
+	if !slices.Contains(imageTypes, contentType) {
+		return nil, "", "Фото должно быть в формате JPG, PNG, WebP или GIF", nil
+	}
+	return data, contentType, "", nil
+}
+
+// dropImage deletes image id unless it is still in use as keep. Failures only leave an
+// orphaned row behind, so they are logged rather than shown.
+func (a *Admin) dropImage(r *http.Request, id, keep *int64) {
+	if id == nil || (keep != nil && *keep == *id) {
+		return
+	}
+	if err := a.store.DeleteImage(r.Context(), *id); err != nil {
+		slog.Error("admin: delete image", "id", *id, "err", err)
+	}
+}
+
+func splitLines(s string) []string {
+	out := []string{}
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // fillProduct copies form values into p and returns a user-facing error message, if any.
@@ -335,11 +415,13 @@ func fillProduct(p *store.Product, f url.Values) string {
 			p.Methods.V = append(p.Methods.V, m)
 		}
 	}
-	p.BestWith.V = []string{}
-	for _, l := range strings.Split(f.Get("best_with"), "\n") {
-		if l = strings.TrimSpace(l); l != "" {
-			p.BestWith.V = append(p.BestWith.V, l)
-		}
+	p.BestWith.V = splitLines(f.Get("best_with"))
+	if p.I18n.V == nil {
+		p.I18n.V = map[string]store.ProductText{}
+	}
+	p.I18n.V["uz"] = store.ProductText{
+		Name: get("uz_name"), Tagline: get("uz_tagline"), Description: get("uz_description"),
+		Badge: get("uz_badge"), BestWith: splitLines(f.Get("uz_best_with")),
 	}
 	p.Weights.V = []store.Weight{}
 	for _, l := range strings.Split(f.Get("weights"), "\n") {
@@ -384,6 +466,24 @@ func (a *Admin) productActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.partial(w, "product_row", p)
+}
+
+func (a *Admin) messages(w http.ResponseWriter, r *http.Request) {
+	ms, err := a.store.Messages(r.Context())
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	a.render(w, r, "messages", "Сообщения", "messages", ms)
+}
+
+func (a *Admin) messageDone(w http.ResponseWriter, r *http.Request) {
+	m, err := a.store.SetMessageDone(r.Context(), idParam(r), r.FormValue("done") == "1")
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	a.partial(w, "message_row", m)
 }
 
 func (a *Admin) users(w http.ResponseWriter, r *http.Request) {

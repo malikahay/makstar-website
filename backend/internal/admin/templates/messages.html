@@ -1,0 +1,22 @@
+{{define "content"}}
+<h1>Сообщения</h1>
+<p class="small muted">Из формы на странице «Контакты». Новые сверху; обработанные уходят вниз.</p>
+<table>
+  <tr><th>Когда</th><th>От кого</th><th>Тема</th><th>Сообщение</th><th></th></tr>
+  {{range .Data}}{{template "message_row" .}}{{else}}<tr><td colspan="5" class="muted">Сообщений пока нет</td></tr>{{end}}
+</table>
+{{end}}
+
+{{define "message_row"}}
+<tr id="message-{{.ID}}" {{if .Done}}class="off"{{end}}>
+  <td class="small">{{datetime .CreatedAt}}</td>
+  <td><b>{{.Name}}</b><div class="small"><a href="tel:{{.Phone}}">{{.Phone}}</a></div>{{if .Email}}<div class="small"><a href="mailto:{{.Email}}">{{.Email}}</a></div>{{end}}</td>
+  <td class="small">{{.Topic}}</td>
+  <td style="white-space:pre-wrap;max-width:520px">{{.Text}}</td>
+  <td>
+    <button class="btn sm {{if not .Done}}sec{{end}}" hx-post="/admin/messages/{{.ID}}/done" hx-vals='{"done":"{{if .Done}}0{{else}}1{{end}}"}' hx-target="closest tr" hx-swap="outerHTML">
+      {{if .Done}}Вернуть{{else}}Обработано{{end}}
+    </button>
+  </td>
+</tr>
+{{end}}

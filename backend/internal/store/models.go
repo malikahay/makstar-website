@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // JSONB maps a Postgres jsonb column onto any Go value.
@@ -63,25 +65,80 @@ type Nutrition struct {
 }
 
 type Product struct {
-	ID          int64            `json:"id"`
-	Slug        string           `json:"slug"`
-	Kind        string           `json:"kind"`
-	Name        string           `json:"name"`
-	Latin       string           `json:"latin"`
-	Number      string           `json:"number"`
-	Category    string           `json:"category"`
-	Methods     JSONB[[]string]  `json:"methods"`
-	Tagline     string           `json:"tagline"`
-	Description string           `json:"description"`
-	CookTime    int              `json:"cookTime"`
-	Weights     JSONB[[]Weight]  `json:"weights"`
-	Nutrition   JSONB[Nutrition] `json:"nutrition"`
-	BestWith    JSONB[[]string]  `json:"bestWith"`
-	Badge       string           `json:"badge,omitempty"`
-	Sort        int              `json:"-"`
-	Active      bool             `json:"-"`
-	CreatedAt   time.Time        `json:"-"`
-	UpdatedAt   time.Time        `json:"-"`
+	ID          int64                         `json:"id"`
+	Slug        string                        `json:"slug"`
+	Kind        string                        `json:"kind"`
+	Name        string                        `json:"name"`
+	Latin       string                        `json:"latin"`
+	Number      string                        `json:"number"`
+	Category    string                        `json:"category"`
+	Methods     JSONB[[]string]               `json:"methods"`
+	Tagline     string                        `json:"tagline"`
+	Description string                        `json:"description"`
+	CookTime    int                           `json:"cookTime"`
+	Weights     JSONB[[]Weight]               `json:"weights"`
+	Nutrition   JSONB[Nutrition]              `json:"nutrition"`
+	BestWith    JSONB[[]string]               `json:"bestWith"`
+	Badge       string                        `json:"badge,omitempty"`
+	ImageID     *int64                        `json:"-"`
+	Image       string                        `json:"image,omitempty" gorm:"-"` // photo URL, derived from ImageID
+	I18n        JSONB[map[string]ProductText] `json:"-" gorm:"column:i18n"`
+	Sort        int                           `json:"-"`
+	Active      bool                          `json:"-"`
+	CreatedAt   time.Time                     `json:"-"`
+	UpdatedAt   time.Time                     `json:"-"`
+}
+
+// AfterFind fills Image so every loaded product carries its photo URL. The URL changes
+// with each upload (a new image row), so it can be cached forever.
+func (p *Product) AfterFind(*gorm.DB) error {
+	p.Image = ""
+	if p.ImageID != nil {
+		p.Image = fmt.Sprintf("/api/images/%d", *p.ImageID)
+	}
+	return nil
+}
+
+// Image is an uploaded product photo.
+type Image struct {
+	ID          int64
+	ContentType string
+	Data        []byte
+	CreatedAt   time.Time
+}
+
+// ProductText holds a product's customer-facing copy in one additional language.
+// Empty fields fall back to the base (Russian) text.
+type ProductText struct {
+	Name        string   `json:"name"`
+	Tagline     string   `json:"tagline"`
+	Description string   `json:"description"`
+	BestWith    []string `json:"bestWith"`
+	Badge       string   `json:"badge"`
+}
+
+// Localized returns a copy of p with texts in lang where a translation exists.
+func (p Product) Localized(lang string) Product {
+	tr, ok := p.I18n.V[lang]
+	if !ok {
+		return p
+	}
+	if tr.Name != "" {
+		p.Name = tr.Name
+	}
+	if tr.Tagline != "" {
+		p.Tagline = tr.Tagline
+	}
+	if tr.Description != "" {
+		p.Description = tr.Description
+	}
+	if len(tr.BestWith) > 0 {
+		p.BestWith.V = tr.BestWith
+	}
+	if tr.Badge != "" {
+		p.Badge = tr.Badge
+	}
+	return p
 }
 
 // PriceFor returns the price of the given pack size, or false if the product has no such pack.
@@ -133,6 +190,18 @@ type Order struct {
 	Status    string      `json:"status"`
 	CreatedAt time.Time   `json:"createdAt"`
 	Items     []OrderItem `json:"items"`
+}
+
+// Message is a contact form submission.
+type Message struct {
+	ID        int64     `json:"id"`
+	Topic     string    `json:"topic"`
+	Name      string    `json:"name"`
+	Phone     string    `json:"phone"`
+	Email     string    `json:"email"`
+	Text      string    `json:"text"`
+	Done      bool      `json:"-"`
+	CreatedAt time.Time `json:"-"`
 }
 
 type OrderItem struct {

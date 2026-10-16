@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductView } from "@/components/ProductView";
+import { getLang } from "@/i18n/server";
 import { getProducts } from "@/lib/catalog";
 
-export const revalidate = 10;
-
 async function findProduct(slug: string) {
-  return (await getProducts()).find((p) => p.slug === slug);
-}
-
-export async function generateStaticParams() {
-  return (await getProducts()).map((p) => ({ slug: p.slug }));
+  return (await getProducts(await getLang())).find((p) => p.slug === slug);
 }
 
 export async function generateMetadata({ params }: PageProps<"/catalog/[slug]">): Promise<Metadata> {

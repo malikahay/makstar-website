@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
-import { categoryLabels, methodLabels, type Category, type Method } from "@/lib/products";
+import type { Category, Method } from "@/lib/products";
+import { useT } from "./LocaleProvider";
 import { useProducts } from "./ProductsProvider";
 import { ProductCard } from "./ProductCard";
 
@@ -10,6 +11,7 @@ type Sort = "popular" | "cheap" | "fast";
 
 export function CatalogGrid() {
   const { products } = useProducts();
+  const t = useT();
   const [cat, setCat] = useState<Category | "all">("all");
   const [methods, setMethods] = useState<Method[]>([]);
   const [sort, setSort] = useState<Sort>("popular");
@@ -43,13 +45,13 @@ export function CatalogGrid() {
                 />
               )}
               <span className={`relative transition-colors ${cat === c ? "text-white" : ""}`}>
-                {c === "all" ? "Все" : categoryLabels[c]}
+                {c === "all" ? t.common.all : t.categories[c]}
               </span>
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2 overflow-x-auto">
-          {(Object.keys(methodLabels) as Method[]).map((m) => {
+          {(["boil", "fry", "bake"] as Method[]).map((m) => {
             const on = methods.includes(m);
             return (
               <button
@@ -60,7 +62,7 @@ export function CatalogGrid() {
                 }`}
               >
                 {on ? "✓ " : ""}
-                {methodLabels[m]}
+                {t.methods[m]}
               </button>
             );
           })}
@@ -69,15 +71,15 @@ export function CatalogGrid() {
             onChange={(e) => setSort(e.target.value as Sort)}
             className="shrink-0 rounded-full bg-mk-black px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white outline-none"
           >
-            <option value="popular">Популярные</option>
-            <option value="cheap">Дешевле</option>
-            <option value="fast">Быстрее готовятся</option>
+            <option value="popular">{t.catalog.sortPopular}</option>
+            <option value="cheap">{t.catalog.sortCheap}</option>
+            <option value="fast">{t.catalog.sortFast}</option>
           </select>
         </div>
       </div>
 
       <div className="mb-6 font-display text-sm font-bold text-mk-black/50">
-        Найдено: <span className="text-mk-blue">{list.length}</span>
+        {t.catalog.found} <span className="text-mk-blue">{list.length}</span>
       </div>
 
       <motion.div layout className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-8 lg:grid-cols-4">
@@ -98,7 +100,7 @@ export function CatalogGrid() {
       </motion.div>
       {list.length === 0 && (
         <div className="py-20 text-center font-display text-2xl font-bold">
-          Такой формы пока нет. Попробуйте убрать фильтр 🙂
+          {t.catalog.empty}
         </div>
       )}
     </div>

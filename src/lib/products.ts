@@ -29,19 +29,8 @@ export type Product = {
   nutrition: { kcal: number; protein: number; fat: number; carbs: number };
   bestWith: string[];
   badge?: string;
-};
-
-export const categoryLabels: Record<Category, string> = {
-  long: "Длинные",
-  short: "Короткие",
-  shaped: "Фигурные",
-  soup: "Для супа",
-};
-
-export const methodLabels: Record<Method, string> = {
-  boil: "Варить",
-  fry: "Жарить",
-  bake: "Запекать",
+  /** Photo uploaded in the admin; when set it replaces the drawn pack. */
+  image?: string;
 };
 
 const baseNutrition = { kcal: 344, protein: 12.5, fat: 1.4, carbs: 70.2 };
@@ -231,8 +220,8 @@ export const fallbackProducts: Product[] = [
   },
 ];
 
-export function formatPrice(n: number) {
-  return new Intl.NumberFormat("ru-RU").format(n).replace(/ /g, " ") + " сум";
+export function formatPrice(n: number, currency = "сум") {
+  return new Intl.NumberFormat("ru-RU").format(n).replace(/\s/g, "\u00a0") + "\u00a0" + currency;
 }
 
 export const FREE_SHIPPING_FROM = 150000;

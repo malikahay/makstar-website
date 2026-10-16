@@ -2,23 +2,19 @@
 
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import { useRef, useState } from "react";
-import { FREE_SHIPPING_FROM, SHIPPING_PRICE, formatPrice } from "@/lib/products";
+import { FREE_SHIPPING_FROM, SHIPPING_PRICE } from "@/lib/products";
+import { useFormatPrice, useT } from "./LocaleProvider";
 import { Accordion } from "./Accordion";
 import { Arrow, Button } from "./Button";
 import { PageHero } from "./PageHero";
 import { Pasta } from "./Pasta";
 import { Reveal, SplitText } from "./motion";
 
-const ZONES = [
-  { t: "Ташкент", time: "Сегодня или завтра", price: formatPrice(SHIPPING_PRICE), note: `Бесплатно от ${formatPrice(FREE_SHIPPING_FROM)}`, cls: "bg-mk-blue text-white" },
-  { t: "Регионы", time: "1–3 дня", price: "от 25 000 сум", note: "Все областные центры", cls: "bg-mk-yellow" },
-  { t: "Самовывоз", time: "Через 2 часа", price: "Бесплатно", note: "Чирчик, ул. Ш. Рашидова, 368", cls: "bg-mk-black text-white" },
-];
-
-const ROUTE = ["Заказ принят", "Собираем", "В пути", "У вашей двери"];
+const ZONE_STYLES = ["bg-mk-blue text-white", "bg-mk-yellow", "bg-mk-black text-white"];
+const ROUTE_STEPS = 4;
 
 function Checkpoint({ i, progress, label }: { i: number; progress: MotionValue<number>; label: string }) {
-  const at = i / (ROUTE.length - 1);
+  const at = i / (ROUTE_STEPS - 1);
   const bg = useTransform(progress, [at - 0.05, at], ["#e5e7eb", "#ffd400"]);
   const scale = useTransform(progress, [at - 0.05, at, at + 0.05], [1, 1.3, 1]);
   return (
@@ -32,13 +28,14 @@ function Checkpoint({ i, progress, label }: { i: number; progress: MotionValue<n
 }
 
 function Route() {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.8", "end 0.4"] });
   const left = useTransform(scrollYProgress, (v) => `${Math.min(1, Math.max(0, v)) * 100}%`);
   return (
     <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-32">
       <h2 className="mb-20 font-display text-4xl font-black uppercase md:text-7xl">
-        <SplitText text="Как едут ваши макароны" />
+        <SplitText key={t.delivery.routeTitle} text={t.delivery.routeTitle} />
       </h2>
       <div ref={ref} className="relative mx-10 md:mx-16">
         <div className="absolute left-0 right-0 top-5 h-2 rounded-full bg-mk-black/10" />
@@ -47,7 +44,7 @@ function Route() {
           <Truck />
         </motion.div>
         <div className="relative flex justify-between">
-          {ROUTE.map((r, i) => (
+          {t.delivery.route.map((r, i) => (
             <Checkpoint key={r} i={i} label={r} progress={scrollYProgress} />
           ))}
         </div>
@@ -77,6 +74,8 @@ function Truck() {
 }
 
 function Calculator() {
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const [packs, setPacks] = useState(6);
   const avg = 13900;
   const sum = packs * avg;
@@ -86,9 +85,9 @@ function Calculator() {
       <div className="mx-auto grid max-w-[1400px] items-center gap-10 px-6 py-20 md:grid-cols-2 md:px-8">
         <div>
           <h2 className="font-display text-4xl font-black uppercase leading-[0.95] md:text-6xl">
-            Сколько пачек до бесплатной доставки?
+            {t.delivery.calcTitle}
           </h2>
-          <p className="mt-4 max-w-md font-semibold opacity-70">Двигайте ползунок. Средняя цена пачки — {formatPrice(avg)}.</p>
+          <p className="mt-4 max-w-md font-semibold opacity-70">{t.delivery.calcLead(formatPrice(avg))}</p>
         </div>
         <div className="rounded-[32px] bg-white p-8">
           <div className="flex items-end justify-between">
@@ -101,7 +100,7 @@ function Calculator() {
                 animate={{ scale: 1, opacity: 1 }}
                 className={`mt-1 inline-block rounded-full px-3 py-1 text-xs font-bold ${free ? "bg-mk-blue text-white" : "bg-mk-black/10"}`}
               >
-                {free ? "Доставка бесплатно 🎉" : `Доставка ${formatPrice(SHIPPING_PRICE)}`}
+                {free ? t.delivery.freeShipping : t.delivery.shipping(formatPrice(SHIPPING_PRICE))}
               </motion.div>
             </div>
           </div>
@@ -112,7 +111,7 @@ function Calculator() {
             value={packs}
             onChange={(e) => setPacks(+e.target.value)}
             className="mt-8 w-full accent-[#1638ff]"
-            aria-label="Количество пачек"
+            aria-label={t.delivery.packsAria}
           />
           <div className="mt-6 flex h-16 flex-wrap gap-1 overflow-hidden">
             {Array.from({ length: packs }).map((_, i) => (
@@ -133,29 +132,28 @@ function Calculator() {
   );
 }
 
-const PAYMENTS = [
-  { t: "Click", d: "Мгновенно из приложения" },
-  { t: "Payme", d: "Оплата по QR или ссылке" },
-  { t: "Uzum", d: "Можно в рассрочку" },
-  { t: "Humo / Uzcard", d: "Любая карта банка" },
-  { t: "Visa / Mastercard", d: "Международные карты" },
-  { t: "Наличные", d: "Курьеру при получении" },
-];
-
 export function DeliveryPage() {
+  const t = useT();
+  const formatPrice = useFormatPrice();
+  const [tashkent, regions, pickup] = t.delivery.zones;
+  const ZONES = [
+    { ...tashkent, price: formatPrice(SHIPPING_PRICE), note: `${tashkent.note} ${formatPrice(FREE_SHIPPING_FROM)}` },
+    regions,
+    pickup,
+  ].map((z, i) => ({ ...z, cls: ZONE_STYLES[i] }));
   return (
     <>
       <PageHero
-        eyebrow="Доставка и оплата"
-        title="Быстро, как вода закипает"
-        lead="Привезём макароны к двери или соберём заказ для самовывоза. Оплачивайте как удобно."
+        eyebrow={t.delivery.eyebrow}
+        title={t.delivery.title}
+        lead={t.delivery.lead}
         pastas={["elbow", "penne", "conchiglie"]}
       />
 
       <section className="mx-auto max-w-[1400px] px-4 pt-24 md:px-8">
         <div className="grid gap-4 md:grid-cols-3">
           {ZONES.map((z, i) => (
-            <Reveal key={z.t} delay={i * 0.1} y={60}>
+            <Reveal key={i} delay={i * 0.1} y={60}>
               <div className={`group relative h-full overflow-hidden rounded-[32px] p-8 ${z.cls}`}>
                 <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-60">0{i + 1}</div>
                 <h3 className="mt-6 font-display text-4xl font-black uppercase">{z.t}</h3>
@@ -179,10 +177,10 @@ export function DeliveryPage() {
 
       <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-32">
         <h2 className="mb-12 font-display text-4xl font-black uppercase md:text-7xl">
-          <SplitText text="Способы оплаты" />
+          <SplitText key={t.delivery.paymentTitle} text={t.delivery.paymentTitle} />
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {PAYMENTS.map((p, i) => (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {t.delivery.payments.map((p, i) => (
             <Reveal key={p.t} delay={i * 0.05}>
               <div className="group relative overflow-hidden rounded-[28px] border-2 border-mk-black/10 p-6 transition-colors duration-500 hover:border-mk-blue md:p-8">
                 <div className="absolute inset-0 translate-y-full bg-mk-blue transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0" />
@@ -199,22 +197,17 @@ export function DeliveryPage() {
       <section className="mx-2 mb-2 rounded-[40px] bg-mk-black px-6 py-20 text-white md:mx-4 md:mb-4 md:px-12 md:py-28">
         <div className="mx-auto grid max-w-[1400px] gap-12 md:grid-cols-[1fr_2fr]">
           <div>
-            <h2 className="font-display text-4xl font-black uppercase md:text-6xl">Вопросы</h2>
-            <p className="mt-4 text-white/60">Не нашли ответ? Напишите нам — отвечаем за 5 минут.</p>
+            <h2 className="font-display text-4xl font-black uppercase md:text-6xl">{t.delivery.faqTitle}</h2>
+            <p className="mt-4 text-white/60">{t.delivery.faqLead}</p>
             <div className="mt-8">
               <Button href="/contacts" variant="yellow" icon={<Arrow />}>
-                Поддержка
+                {t.delivery.support}
               </Button>
             </div>
           </div>
           <Accordion
             dark
-            items={[
-              { q: "Какая минимальная сумма заказа?", a: "Минимального заказа нет. Но от 150 000 сум доставка по Ташкенту бесплатная." },
-              { q: "Можно выбрать время доставки?", a: "Да, при оформлении выберите удобный интервал: 9–13, 13–17 или 17–21." },
-              { q: "Что если пачка повреждена?", a: "Сфотографируйте и напишите в поддержку — заменим или вернём деньги в тот же день." },
-              { q: "Вы доставляете оптом?", a: "Да. Для магазинов и HoReCa есть отдельные условия — оставьте заявку на странице контактов." },
-            ]}
+            items={t.delivery.faq}
           />
         </div>
       </section>

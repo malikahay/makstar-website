@@ -9,9 +9,10 @@ import {
   type MotionValue,
 } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { PastaKind } from "@/lib/products";
+import type { Method, PastaKind } from "@/lib/products";
 import { useProducts } from "./ProductsProvider";
-import { recipes } from "@/lib/recipes";
+import { getRecipes } from "@/lib/recipes";
+import { useLocale, useT } from "./LocaleProvider";
 import { Arrow, Button } from "./Button";
 import { Star } from "./Logo";
 import { Pack } from "./Pack";
@@ -70,6 +71,7 @@ function Piece({
 
 function Hero() {
   const { products } = useProducts();
+  const t = useT();
   const ref = useRef<HTMLElement>(null);
   const ready = usePageReady();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -144,9 +146,9 @@ function Hero() {
       {/* copy */}
       <motion.div style={{ opacity: contentOpacity }} className="relative z-30 mx-auto max-w-[1400px] px-4 pt-32 md:px-8 md:pt-40">
         <h1 className="max-w-3xl font-display text-[13vw] font-black uppercase leading-[0.88] tracking-tight sm:text-7xl md:text-8xl">
-          <SplitText text="Вари." className="block" />
-          <SplitText text="Жарь." className="block" wordClassName="text-mk-yellow" delay={0.1} />
-          <SplitText text="Запекай." className="block" delay={0.2} />
+          <SplitText text={t.home.hero[0]} className="block" />
+          <SplitText text={t.home.hero[1]} className="block" wordClassName="text-mk-yellow" delay={0.1} />
+          <SplitText text={t.home.hero[2]} className="block" delay={0.2} />
         </h1>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -154,7 +156,7 @@ function Hero() {
           transition={{ duration: 1, ease: EXPO, delay: 0.6 }}
           className="mt-6 max-w-sm text-base text-white/80 md:text-lg"
         >
-          Макароны, которые не слипаются в кастрюле, не разваливаются на сковороде и держат форму в духовке.
+          {t.home.heroLead}
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -163,10 +165,10 @@ function Hero() {
           className="mt-8 flex flex-wrap gap-3"
         >
           <Button href="/catalog" big icon={<Arrow />}>
-            В каталог
+            {t.common.toCatalog}
           </Button>
           <Button href="/recipes" variant="outline" big>
-            Рецепты
+            {t.common.recipes}
           </Button>
         </motion.div>
       </motion.div>
@@ -185,7 +187,7 @@ function Hero() {
             transition={{ repeat: Infinity, duration: 1.6 }}
           />
         </span>
-        Листайте
+        {t.home.scroll}
       </motion.div>
     </section>
   );
@@ -194,7 +196,7 @@ function Hero() {
 /* ───────────────────────── TAPES ───────────────────────── */
 
 function Tapes() {
-  const words = ["Вари", "Жарь", "Запекай", "Люби", "Makstar"];
+  const words = useT().home.tapes;
   return (
     <section className="relative z-10 -mt-10 h-48 overflow-hidden md:h-64">
       <div className="absolute inset-x-[-5%] top-1/2 -translate-y-1/2 rotate-[4deg] bg-mk-black py-4 text-white">
@@ -222,14 +224,16 @@ function Tapes() {
 /* ───────────────────────── MANIFESTO ───────────────────────── */
 
 function Manifesto() {
+  const t = useT();
   return (
     <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-40">
       <Reveal className="mb-10 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.3em] text-mk-blue">
-        <span className="h-px w-12 bg-mk-blue" /> Манифест
+        <span className="h-px w-12 bg-mk-blue" /> {t.home.manifesto}
       </Reveal>
       <ScrollWords
         className="font-display text-3xl font-bold leading-[1.15] tracking-tight md:text-6xl"
-        text="Мы делаем макароны из *твёрдой *пшеницы, прессуем через *бронзовые *матрицы и сушим медленно — 18 часов. Поэтому они держат форму в кастрюле, на *сковороде и в *духовке. Без красителей. Без компромиссов."
+        key={t.home.manifestoText}
+        text={t.home.manifestoText}
       />
     </section>
   );
@@ -239,6 +243,7 @@ function Manifesto() {
 
 function Lineup() {
   const { products } = useProducts();
+  const t = useT();
   const section = useRef<HTMLElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const [distance, setDistance] = useState(0);
@@ -260,16 +265,15 @@ function Lineup() {
       <div className="sticky top-0 flex h-screen flex-col justify-center overflow-hidden">
         <motion.div ref={track} style={{ x }} className="flex w-max items-center gap-8 px-4 md:gap-12 md:px-8">
           <div className="w-[80vw] shrink-0 text-white md:w-[36vw]">
-            <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-yellow">Линейка · 10 форм</div>
+            <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-yellow">{t.home.lineupEyebrow}</div>
             <h2 className="font-display text-5xl font-black uppercase leading-[0.9] md:text-7xl">
-              Найди <span className="text-outline text-mk-yellow">свою</span> форму
+              {t.home.lineupTitle[0]} <span className="text-outline text-mk-yellow">{t.home.lineupTitle[1]}</span>{" "}
+              {t.home.lineupTitle[2]}
             </h2>
-            <p className="mt-6 max-w-sm text-white/60">
-              От тонкой паутинки для супа до ригатони для запекания. Листайте вниз — линейка поедет вбок.
-            </p>
+            <p className="mt-6 max-w-sm text-white/60">{t.home.lineupLead}</p>
             <div className="mt-8">
               <Button href="/catalog" variant="yellow" icon={<Arrow />}>
-                Весь каталог
+                {t.home.fullCatalog}
               </Button>
             </div>
           </div>
@@ -291,41 +295,21 @@ function Lineup() {
 /* ───────────────────────── METHODS ───────────────────────── */
 
 const METHODS = [
-  {
-    key: "boil",
-    title: "Варить",
-    n: "01",
-    text: "Не слипаются, даже если вы отвлеклись на сериал. Аль денте — ровно по таймеру на пачке.",
-    cls: "bg-mk-blue text-white",
-    kind: "spaghetti" as PastaKind,
-  },
-  {
-    key: "fry",
-    title: "Жарить",
-    n: "02",
-    text: "Плотная структура — румяная корочка снаружи, упругость внутри. Вчерашние макароны? Лучший завтрак.",
-    cls: "bg-mk-yellow text-mk-black",
-    kind: "penne" as PastaKind,
-  },
-  {
-    key: "bake",
-    title: "Запекать",
-    n: "03",
-    text: "Держат форму 30 минут при 200 °C. Сыр тянется, соус внутри, форма на месте.",
-    cls: "bg-mk-black text-white",
-    kind: "conchiglie" as PastaKind,
-  },
-];
+  { key: "boil", n: "01", cls: "bg-mk-blue text-white", kind: "spaghetti" },
+  { key: "fry", n: "02", cls: "bg-mk-yellow text-mk-black", kind: "penne" },
+  { key: "bake", n: "03", cls: "bg-mk-black text-white", kind: "conchiglie" },
+] as const satisfies { key: Method; n: string; cls: string; kind: PastaKind }[];
 
 function Methods() {
+  const t = useT();
   const [active, setActive] = useState(1);
   return (
     <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-32">
       <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
         <h2 className="font-display text-5xl font-black uppercase leading-[0.9] md:text-8xl">
-          <SplitText text="Три способа" />
+          <SplitText key={t.home.methodsTitle[0]} text={t.home.methodsTitle[0]} />
           <br />
-          <SplitText text="быть счастливым" wordClassName="text-mk-blue" delay={0.15} />
+          <SplitText key={t.home.methodsTitle[1]} text={t.home.methodsTitle[1]} wordClassName="text-mk-blue" delay={0.15} />
         </h2>
       </div>
       <div className="flex flex-col gap-3 md:h-[560px] md:flex-row">
@@ -356,19 +340,19 @@ function Methods() {
                   isActive ? "" : "md:absolute md:bottom-10 md:left-8 md:mt-0 md:rotate-180 md:text-5xl md:[writing-mode:vertical-rl]"
                 }`}
               >
-                {m.title}
+                {t.methods[m.key]}
               </h3>
               <motion.div
                 animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 30 }}
                 transition={{ duration: 0.6, ease: EXPO, delay: isActive ? 0.2 : 0 }}
                 className="relative z-10 mt-4 max-w-sm"
               >
-                <p className="text-base opacity-80 md:text-lg">{m.text}</p>
+                <p className="text-base opacity-80 md:text-lg">{t.home.methodTexts[m.key]}</p>
                 <TLink
                   href={`/recipes?m=${m.key}`}
                   className="mt-6 inline-flex items-center gap-2 border-b-2 border-current pb-1 text-sm font-bold uppercase tracking-wider"
                 >
-                  Рецепты <Arrow />
+                  {t.common.recipes} <Arrow />
                 </TLink>
               </motion.div>
               <motion.div
@@ -400,12 +384,7 @@ function Methods() {
 /* ───────────────────────── STATS ───────────────────────── */
 
 function Stats() {
-  const stats = [
-    { n: 100, s: "%", l: "твёрдая пшеница durum" },
-    { n: 18, s: " ч", l: "медленной сушки" },
-    { n: 10, s: "", l: "форм для любого блюда" },
-    { n: 0, s: "", l: "красителей и консервантов" },
-  ];
+  const stats = useT().home.stats;
   return (
     <section className="relative overflow-hidden rounded-[40px] bg-mk-yellow mx-2 md:mx-4">
       <div className="mx-auto grid max-w-[1400px] gap-10 px-6 py-20 md:grid-cols-4 md:px-8 md:py-28">
@@ -428,18 +407,19 @@ function Stats() {
 /* ───────────────────────── RECIPES TEASER ───────────────────────── */
 
 function RecipesTeaser() {
-  const list = recipes.slice(0, 3);
+  const { lang, t } = useLocale();
+  const list = getRecipes(lang).slice(0, 3);
   return (
     <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-32">
       <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <Reveal className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-blue">Рецепты</Reveal>
+          <Reveal className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-blue">{t.common.recipes}</Reveal>
           <h2 className="font-display text-5xl font-black uppercase leading-[0.9] md:text-7xl">
-            <SplitText text="Что готовим сегодня?" />
+            <SplitText key={t.home.recipesTitle} text={t.home.recipesTitle} />
           </h2>
         </div>
         <Button href="/recipes" variant="black" icon={<Arrow />}>
-          Все рецепты
+          {t.home.allRecipes}
         </Button>
       </div>
       <div className="grid gap-5 md:grid-cols-3">
@@ -447,12 +427,12 @@ function RecipesTeaser() {
           <Reveal key={r.slug} delay={i * 0.12} y={80}>
             <TLink
               href="/recipes"
-              data-cursor="Готовить"
+              data-cursor={t.common.cursorCook}
               className={`group block overflow-hidden rounded-[32px] p-6 ${
                 i === 0 ? "bg-mk-blue text-white" : i === 1 ? "bg-mk-black text-white" : "bg-mk-yellow"
               }`}
             >
-              <div className="text-xs font-bold uppercase tracking-[0.2em] opacity-70">{r.time} минут</div>
+              <div className="text-xs font-bold uppercase tracking-[0.2em] opacity-70">{t.home.minutes(r.time)}</div>
               <div className="mx-auto my-8 w-[70%]">
                 <Plate
                   kind={r.kind}
@@ -493,6 +473,7 @@ function RainPiece({ i }: { i: number }) {
 }
 
 function CTA() {
+  const t = useT();
   return (
     <section className="relative mx-2 mb-2 overflow-hidden rounded-[40px] bg-mk-blue text-white md:mx-4 md:mb-4">
       <style>{`@keyframes rain{from{transform:translateY(0) rotate(0)}to{transform:translateY(900px) rotate(540deg)}} .rain{animation:rain linear infinite}`}</style>
@@ -502,15 +483,15 @@ function CTA() {
         ))}
       </div>
       <div className="relative mx-auto flex max-w-[1400px] flex-col items-center px-4 py-28 text-center md:py-40">
-        <Reveal className="mb-6 text-xs font-bold uppercase tracking-[0.3em] text-mk-yellow">Доставка от 1 дня</Reveal>
+        <Reveal className="mb-6 text-xs font-bold uppercase tracking-[0.3em] text-mk-yellow">{t.home.ctaEyebrow}</Reveal>
         <h2 className="font-display text-6xl font-black uppercase leading-[0.85] md:text-[9rem]">
-          <SplitText text="Голоден?" />
+          <SplitText key={t.home.ctaTitle[0]} text={t.home.ctaTitle[0]} />
           <br />
-          <SplitText text="Мы тоже." wordClassName="text-mk-yellow" delay={0.15} />
+          <SplitText key={t.home.ctaTitle[1]} text={t.home.ctaTitle[1]} wordClassName="text-mk-yellow" delay={0.15} />
         </h2>
         <Reveal delay={0.3} className="mt-10">
           <Button href="/catalog" big icon={<Arrow />}>
-            Заказать макароны
+            {t.home.ctaButton}
           </Button>
         </Reveal>
       </div>

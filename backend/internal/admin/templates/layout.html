@@ -51,6 +51,9 @@ td select{width:auto;padding:4px 8px}
 .form label{display:block;font-size:13px;font-weight:700;color:var(--muted)}.form label>*{margin-top:4px}
 .form .full{grid-column:1/-1}.checks{display:flex;gap:16px;margin-top:8px}.checks label{display:flex;gap:6px;align-items:center;color:var(--ink);font-weight:600}
 .checks input{width:auto}
+.photo{display:flex;gap:18px;align-items:center}.photo>div{flex:1}
+.photo img,.thumb{object-fit:cover;border-radius:12px;border:1.5px solid var(--line);background:var(--line)}
+.photo img{width:120px;height:160px}.thumb{width:44px;height:58px;display:block}
 .err{background:#fde2e2;color:var(--red);padding:10px 14px;border-radius:12px;margin-bottom:16px;font-weight:600}
 .off{opacity:.45}
 .htmx-request{opacity:.6;transition:opacity .2s}
@@ -64,6 +67,7 @@ td select{width:auto;padding:4px 8px}
   <nav>
     <a href="/admin" {{if eq .Nav "dash"}}class="on"{{end}}>Статистика</a>
     <a href="/admin/orders" {{if eq .Nav "orders"}}class="on"{{end}}>Заказы{{if .NewOrders}} · {{.NewOrders}}{{end}}</a>
+    <a href="/admin/messages" {{if eq .Nav "messages"}}class="on"{{end}}>Сообщения{{if .OpenMsgs}} · {{.OpenMsgs}}{{end}}</a>
     <a href="/admin/products" {{if eq .Nav "products"}}class="on"{{end}}>Товары</a>
     <a href="/admin/users" {{if eq .Nav "users"}}class="on"{{end}}>Пользователи</a>
     <a href="/" style="margin-top:18px">← На сайт</a>

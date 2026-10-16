@@ -3,11 +3,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { api, type Order } from "@/lib/client";
-import { FREE_SHIPPING_FROM, SHIPPING_PRICE, formatPrice, type PastaKind } from "@/lib/products";
+import { dictionaries } from "@/i18n";
+import { FREE_SHIPPING_FROM, SHIPPING_PRICE, type PastaKind } from "@/lib/products";
 import { useAuth } from "./AuthProvider";
+import { useFormatPrice, useT } from "./LocaleProvider";
 import { Arrow, Button } from "./Button";
 import { CartLine, FreeShippingBar } from "./CartBits";
 import { PROMO_CODE, useCart } from "./CartProvider";
+import { Consent } from "./Consent";
 import { Field } from "./Contacts";
 import { PageHero } from "./PageHero";
 import { Pasta } from "./Pasta";
@@ -35,12 +38,14 @@ function Summary({
 }) {
   const { items, promo, applyPromo, priceOf } = useCart();
   const { getProduct } = useProducts();
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const { subtotal, discount, shipping, total } = useTotals(delivery);
   const [code, setCode] = useState("");
   const [err, setErr] = useState(false);
   return (
     <div className="sticky top-28 rounded-[32px] bg-mk-black p-6 text-white md:p-8">
-      <h3 className="font-display text-2xl font-black uppercase">Ваш заказ</h3>
+      <h3 className="font-display text-2xl font-black uppercase">{t.cart.yourOrder}</h3>
       {compact && (
         <ul className="mt-5 space-y-3">
           {items.map((i) => {
@@ -51,7 +56,7 @@ function Summary({
                   <Pasta kind={p.kind} className="h-7 w-7" />
                 </span>
                 <span className="flex-1">
-                  {p.name}, {i.grams} г × {i.qty}
+                  {p.name}, {i.grams} {t.g} × {i.qty}
                 </span>
                 <span className="font-bold">{formatPrice(priceOf(i) * i.qty)}</span>
               </li>
@@ -61,7 +66,7 @@ function Summary({
       )}
       <dl className="mt-6 space-y-3 border-t border-white/10 pt-6 text-sm">
         <div className="flex justify-between">
-          <dt className="text-white/60">Товары</dt>
+          <dt className="text-white/60">{t.cart.goods}</dt>
           <dd>{formatPrice(subtotal)}</dd>
         </div>
         <AnimatePresence>
@@ -72,14 +77,14 @@ function Summary({
               exit={{ opacity: 0, height: 0 }}
               className="flex justify-between text-mk-yellow"
             >
-              <dt>Промокод {promo}</dt>
+              <dt>{t.cart.promo(promo ?? "")}</dt>
               <dd>−{formatPrice(discount)}</dd>
             </motion.div>
           )}
         </AnimatePresence>
         <div className="flex justify-between">
-          <dt className="text-white/60">Доставка</dt>
-          <dd>{shipping === 0 ? "Бесплатно" : formatPrice(shipping)}</dd>
+          <dt className="text-white/60">{t.cart.shippingLabel}</dt>
+          <dd>{shipping === 0 ? t.cart.free : formatPrice(shipping)}</dd>
         </div>
       </dl>
       {!promo && (
@@ -96,14 +101,14 @@ function Summary({
               setCode(e.target.value);
               setErr(false);
             }}
-            placeholder={`Промокод (попробуйте ${PROMO_CODE})`}
+            placeholder={t.cart.promoPlaceholder(PROMO_CODE)}
             className="min-w-0 flex-1 bg-transparent px-4 text-sm uppercase outline-none placeholder:normal-case placeholder:text-white/40"
           />
-          <button className="rounded-full bg-white px-4 py-2 text-xs font-bold uppercase text-mk-black">Ок</button>
+          <button className="rounded-full bg-white px-4 py-2 text-xs font-bold uppercase text-mk-black">{t.cart.ok}</button>
         </form>
       )}
       <div className="mt-6 flex items-end justify-between border-t border-white/10 pt-6">
-        <span className="text-white/60">Итого</span>
+        <span className="text-white/60">{t.cart.total}</span>
         <AnimatePresence mode="popLayout">
           <motion.span
             key={total}
@@ -122,16 +127,17 @@ function Summary({
 }
 
 function EmptyCart() {
+  const t = useT();
   return (
     <div className="flex flex-col items-center py-20 text-center">
       <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ repeat: Infinity, duration: 3 }}>
         <Pasta kind="nest" className="h-40 w-40" />
       </motion.div>
-      <h2 className="mt-6 font-display text-4xl font-black uppercase">Корзина пуста</h2>
-      <p className="mt-3 max-w-sm text-mk-black/60">Но это легко исправить. Начните с хитов — их выбирают чаще всего.</p>
+      <h2 className="mt-6 font-display text-4xl font-black uppercase">{t.cart.empty}</h2>
+      <p className="mt-3 max-w-sm text-mk-black/60">{t.cart.emptyLead}</p>
       <div className="mt-8">
         <Button href="/catalog" variant="blue" big icon={<Arrow />}>
-          В каталог
+          {t.common.toCatalog}
         </Button>
       </div>
     </div>
@@ -141,10 +147,11 @@ function EmptyCart() {
 export function CartPage() {
   const { items, subtotal } = useCart();
   const { products } = useProducts();
-  const suggestions = products.filter((p) => p.badge === "Хит" && !items.some((i) => i.slug === p.slug)).slice(0, 4);
+  const t = useT();
+  const suggestions = products.filter((p) => p.badge && !items.some((i) => i.slug === p.slug)).slice(0, 4);
   return (
     <>
-      <PageHero eyebrow="Корзина" title="Ваша кастрюля" pastas={["nest", "penne", "elbow"]} />
+      <PageHero eyebrow={t.cart.title} title={t.cart.heroTitle} pastas={["nest", "penne", "elbow"]} />
       <section className="mx-auto max-w-[1400px] px-4 py-16 md:px-8 md:py-24">
         {items.length === 0 ? (
           <EmptyCart />
@@ -165,7 +172,7 @@ export function CartPage() {
             <div>
               <Summary>
                 <Button href="/checkout" variant="yellow" big className="w-full" magnetic={false} icon={<Arrow />}>
-                  Оформить заказ
+                  {t.cart.placeOrder}
                 </Button>
               </Summary>
             </div>
@@ -174,7 +181,7 @@ export function CartPage() {
       </section>
       {suggestions.length > 0 && (
         <section className="mx-auto max-w-[1400px] px-4 pb-24 md:px-8">
-          <h2 className="mb-10 font-display text-3xl font-black uppercase md:text-5xl">Добавить к заказу?</h2>
+          <h2 className="mb-10 font-display text-3xl font-black uppercase md:text-5xl">{t.cart.addMore}</h2>
           <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-4 md:gap-x-8">
             {suggestions.map((p, i) => (
               <Reveal key={p.slug} delay={i * 0.08}>
@@ -190,9 +197,8 @@ export function CartPage() {
 
 /* ───────────────────────── CHECKOUT ───────────────────────── */
 
-const STEPS = ["Контакты", "Доставка", "Оплата"];
 const SLOTS = ["9:00–13:00", "13:00–17:00", "17:00–21:00"];
-const PAY = ["Click", "Payme", "Uzum", "Картой онлайн", "Наличными курьеру"];
+const PAY = ["card", "cash"] as const;
 
 function Choice({
   active,
@@ -254,13 +260,15 @@ function Confetti() {
 export function CheckoutPage() {
   const { items, clear, promo } = useCart();
   const { user } = useAuth();
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [delivery, setDelivery] = useState<"courier" | "pickup">("courier");
   const [slot, setSlot] = useState(SLOTS[1]);
-  const [pay, setPay] = useState(PAY[0]);
+  const [pay, setPay] = useState<(typeof PAY)[number]>(PAY[0]);
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", comment: "" });
   const [done, setDone] = useState<string | null>(null);
   const { total } = useTotals(delivery);
@@ -280,7 +288,8 @@ export function CheckoutPage() {
         ...form,
         delivery,
         slot: delivery === "courier" ? slot : "",
-        payment: pay,
+        // orders are stored with the Russian label so the admin panel reads the same in any site language
+        payment: dictionaries.ru.checkout.payments[pay],
         promo: promo ?? "",
         items: items.map(({ slug, grams, qty }) => ({ slug, grams, qty })),
       });
@@ -288,7 +297,7 @@ export function CheckoutPage() {
       clear();
       window.scrollTo({ top: 0 });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось оформить заказ");
+      setError(e instanceof Error ? e.message : t.checkout.failed);
     } finally {
       setSending(false);
     }
@@ -320,7 +329,7 @@ export function CheckoutPage() {
             transition={{ delay: 0.3, duration: 1, ease: EXPO }}
             className="mt-10 font-display text-5xl font-black uppercase leading-[0.9] md:text-8xl"
           >
-            Заказ принят!
+            {t.checkout.doneTitle}
           </motion.h1>
           <motion.p
             initial={{ y: 20, opacity: 0 }}
@@ -328,15 +337,15 @@ export function CheckoutPage() {
             transition={{ delay: 0.5 }}
             className="mt-6 max-w-md text-lg text-white/80"
           >
-            Номер заказа <b className="text-mk-yellow">{done}</b>. Мы позвоним вам в течение 10 минут. Ставьте воду кипятиться!
-            {user && " Статус заказа — в личном кабинете."}
+            {t.checkout.doneText(done)}
+            {user && t.checkout.doneAccount}
           </motion.p>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="mt-10 flex flex-wrap justify-center gap-3">
             <Button href="/recipes" big>
-              Что приготовить
+              {t.checkout.whatToCook}
             </Button>
             <Button href="/" variant="outline" big>
-              На главную
+              {t.checkout.toHome}
             </Button>
           </motion.div>
         </section>
@@ -347,7 +356,7 @@ export function CheckoutPage() {
   if (items.length === 0) {
     return (
       <>
-        <PageHero eyebrow="Оформление" title="Оформление заказа" pastas={["penne", "fusilli", "elbow"]} />
+        <PageHero eyebrow={t.checkout.eyebrow} title={t.checkout.heroEmpty} pastas={["penne", "fusilli", "elbow"]} />
         <EmptyCart />
       </>
     );
@@ -358,13 +367,13 @@ export function CheckoutPage() {
 
   return (
     <>
-      <PageHero eyebrow="Оформление" title="Почти готово" pastas={["penne", "fusilli", "elbow"]} />
+      <PageHero eyebrow={t.checkout.eyebrow} title={t.checkout.hero} pastas={["penne", "fusilli", "elbow"]} />
       <section className="mx-auto max-w-[1400px] px-4 py-16 md:px-8 md:py-24">
         <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <div>
             {/* stepper */}
             <div className="mb-10 flex items-center gap-2">
-              {STEPS.map((s, i) => (
+              {t.checkout.steps.map((s, i) => (
                 <button
                   key={s}
                   onClick={() => i < step && go(i)}
@@ -398,18 +407,18 @@ export function CheckoutPage() {
                 >
                   {step === 0 && (
                     <>
-                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">Кто будет есть макароны?</h2>
-                      <Field label="Имя" name="name" required value={form.name} onChange={set("name")} />
-                      <Field label="Телефон" name="phone" type="tel" required value={form.phone} onChange={set("phone")} />
-                      <Field label="Email для чека" name="email" type="email" value={form.email} onChange={set("email")} />
+                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">{t.checkout.whoEats}</h2>
+                      <Field label={t.checkout.name} name="name" required value={form.name} onChange={set("name")} />
+                      <Field label={t.checkout.phone} name="phone" type="tel" required value={form.phone} onChange={set("phone")} />
+                      <Field label={t.checkout.email} name="email" type="email" value={form.email} onChange={set("email")} />
                     </>
                   )}
                   {step === 1 && (
                     <>
-                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">Куда везём?</h2>
+                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">{t.checkout.whereTo}</h2>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <Choice group="delivery" active={delivery === "courier"} onClick={() => setDelivery("courier")} title="Курьером" sub="Сегодня или завтра" />
-                        <Choice group="delivery" active={delivery === "pickup"} onClick={() => setDelivery("pickup")} title="Самовывоз" sub="Бесплатно, через 2 часа" />
+                        <Choice group="delivery" active={delivery === "courier"} onClick={() => setDelivery("courier")} title={t.checkout.courier} sub={t.checkout.courierSub} />
+                        <Choice group="delivery" active={delivery === "pickup"} onClick={() => setDelivery("pickup")} title={t.checkout.pickup} sub={t.checkout.pickupSub} />
                       </div>
                       <AnimatePresence initial={false}>
                         {delivery === "courier" && (
@@ -419,8 +428,8 @@ export function CheckoutPage() {
                             exit={{ height: 0, opacity: 0 }}
                             className="space-y-4 overflow-hidden"
                           >
-                            <Field label="Адрес доставки" name="address" required value={form.address} onChange={set("address")} />
-                            <div className="text-sm font-bold uppercase tracking-wider text-mk-black/50">Интервал</div>
+                            <Field label={t.checkout.address} name="address" required value={form.address} onChange={set("address")} />
+                            <div className="text-sm font-bold uppercase tracking-wider text-mk-black/50">{t.checkout.slot}</div>
                             <div className="grid gap-3 sm:grid-cols-3">
                               {SLOTS.map((s) => (
                                 <Choice key={s} group="slot" active={slot === s} onClick={() => setSlot(s)} title={s} />
@@ -429,21 +438,21 @@ export function CheckoutPage() {
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <Field label="Комментарий курьеру" name="comment" textarea value={form.comment} onChange={set("comment")} />
+                      <Field label={t.checkout.comment} name="comment" textarea value={form.comment} onChange={set("comment")} />
                     </>
                   )}
                   {step === 2 && (
                     <>
-                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">Как оплатите?</h2>
+                      <h2 className="font-display text-3xl font-black uppercase md:text-4xl">{t.checkout.howPay}</h2>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {PAY.map((p) => (
-                          <Choice key={p} group="pay" active={pay === p} onClick={() => setPay(p)} title={p} />
+                          <Choice key={p} group="pay" active={pay === p} onClick={() => setPay(p)} title={t.checkout.payments[p]} />
                         ))}
                       </div>
                       <div className="rounded-2xl bg-mk-yellow-soft/60 p-5 text-sm">
                         <b>{form.name}</b>, {form.phone}
                         <br />
-                        {delivery === "courier" ? `${form.address}, ${slot}` : "Самовывоз: г. Чирчик, ул. Ш. Рашидова, 368"}
+                        {delivery === "courier" ? `${form.address}, ${slot}` : t.checkout.pickupAddress}
                       </div>
                     </>
                   )}
@@ -454,26 +463,27 @@ export function CheckoutPage() {
             <div className="mt-10 flex flex-wrap gap-3">
               {step > 0 && (
                 <Button variant="outline" onClick={() => go(step - 1)} magnetic={false}>
-                  Назад
+                  {t.checkout.back}
                 </Button>
               )}
               {step < 2 ? (
                 <Button variant="blue" onClick={() => go(step + 1)} disabled={!canNext} icon={<Arrow />}>
-                  Далее
+                  {t.checkout.next}
                 </Button>
               ) : (
                 <Button variant="yellow" big onClick={submit} disabled={sending}>
-                  {sending ? "Отправляем…" : `Оплатить ${formatPrice(total)}`}
+                  {sending ? t.checkout.sending : t.checkout.pay(formatPrice(total))}
                 </Button>
               )}
             </div>
+            {step === 2 && <Consent className="mt-4" />}
             {error && <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</p>}
             {!user && step === 2 && (
               <p className="mt-4 text-sm text-mk-black/60">
                 <TLink href="/login?next=/checkout" className="font-bold text-mk-blue underline">
-                  Войдите
+                  {t.checkout.loginHint}
                 </TLink>
-                , чтобы видеть историю и статус заказов в личном кабинете.
+                {t.checkout.loginHintRest}
               </p>
             )}
           </div>

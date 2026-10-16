@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="bar"><h1 style="margin:0;flex:1">Товары</h1><a class="btn" href="/admin/products/new">+ Новый товар</a></div>
 <table>
-  <tr><th>№</th><th>Название</th><th>Категория</th><th>Фасовки</th><th>Бейдж</th><th>На сайте</th><th></th></tr>
+  <tr><th>№</th><th>Фото</th><th>Название</th><th>Категория</th><th>Фасовки</th><th>Бейдж</th><th>На сайте</th><th></th></tr>
   {{range .Data}}{{template "product_row" .}}{{end}}
 </table>
 {{end}}
@@ -9,6 +9,7 @@
 {{define "product_row"}}
 <tr id="product-{{.ID}}" {{if not .Active}}class="off"{{end}}>
   <td class="muted">{{.Number}}</td>
+  <td>{{if .Image}}<img class="thumb" src="{{.Image}}" alt="">{{else}}<span class="small muted">—</span>{{end}}</td>
   <td><b>{{.Name}}</b> <span class="muted small">{{.Latin}}</span><div class="small muted">/catalog/{{.Slug}}</div></td>
   <td>{{categoryLabel .Category}}</td>
   <td class="small">{{range .Weights.V}}{{.Grams}} г — {{money .Price}}<br>{{end}}</td>

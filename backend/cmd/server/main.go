@@ -16,6 +16,7 @@ import (
 	"github.com/malikahay/makstar/backend/internal/admin"
 	"github.com/malikahay/makstar/backend/internal/api"
 	"github.com/malikahay/makstar/backend/internal/auth"
+	"github.com/malikahay/makstar/backend/internal/notify"
 	"github.com/malikahay/makstar/backend/internal/store"
 )
 
@@ -59,7 +60,8 @@ func run() error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP, middleware.Logger, middleware.Recoverer, a.Middleware)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
-	r.Mount("/api", api.Routes(s, a))
+	tg := notify.NewTelegram(os.Getenv("TELEGRAM_BOT_TOKEN"), os.Getenv("TELEGRAM_CHAT_ID"))
+	r.Mount("/api", api.Routes(s, a, tg, os.Getenv("SITE_URL")))
 	r.Mount("/admin", adm.Routes())
 
 	srv := &http.Server{

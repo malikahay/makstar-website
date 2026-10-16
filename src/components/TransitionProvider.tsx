@@ -14,6 +14,7 @@ import {
 } from "react";
 import { lenisRef, scrollToTop } from "@/lib/lenis";
 import { labelFor } from "@/lib/pageLabels";
+import { useT } from "./LocaleProvider";
 import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
 import { Logo } from "./Logo";
@@ -32,6 +33,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const { getProduct } = useProducts();
+  const t = useT();
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const [ready, setReady] = useState(false);
   const [intro, setIntro] = useState(true);
@@ -97,7 +99,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
       }
       busy.current = true;
       router.prefetch(href);
-      setLabel(labelFor(path, getProduct));
+      setLabel(labelFor(path, t, getProduct));
       setPastaIdx((i) => (i + 1) % PASTAS.length);
       lenisRef.current?.stop();
       setBlocking(true);
@@ -110,7 +112,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
       target.current = path;
       router.push(href, { scroll: false });
     },
-    [animate, pathname, router, getProduct],
+    [animate, pathname, router, getProduct, t],
   );
 
   // new route committed → lift the curtain
@@ -160,7 +162,7 @@ export function TransitionProvider({ children }: { children: React.ReactNode }) 
                 <Logo className="text-5xl md:text-8xl" />
                 <div className="mt-6 font-display text-mk-yellow">
                   <span ref={counterRef} className="text-2xl tabular-nums md:text-3xl">000</span>
-                  <span className="ml-2 text-sm uppercase tracking-[0.3em] opacity-70">варим</span>
+                  <span className="ml-2 text-sm uppercase tracking-[0.3em] opacity-70">{t.common.cooking}</span>
                 </div>
               </>
             ) : (

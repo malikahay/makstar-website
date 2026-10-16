@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { CatalogGrid } from "@/components/Catalog";
 import { PageHero } from "@/components/PageHero";
+import { getDict } from "@/i18n/server";
 
-export const metadata: Metadata = { title: "Каталог" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getDict()).meta.catalog };
+}
 
-export default function Page() {
+export default async function Page() {
+  const t = await getDict();
   return (
     <>
-      <PageHero
-        eyebrow="Каталог · 10 форм"
-        title="Выбирай форму"
-        lead="Длинные и короткие, фигурные и для супа. Все — из твёрдой пшеницы и все одинаково любят сковородку."
-        pastas={["fusilli", "penne", "farfalle"]}
-      />
+      <PageHero eyebrow={t.catalog.eyebrow} title={t.catalog.title} lead={t.catalog.lead} pastas={["fusilli", "penne", "farfalle"]} />
       <section className="mx-auto max-w-[1400px] px-4 py-12 md:px-8 md:py-16">
         <CatalogGrid />
       </section>

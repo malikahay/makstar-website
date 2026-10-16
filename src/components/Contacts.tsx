@@ -2,19 +2,17 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
+import { dictionaries } from "@/i18n";
+import { api } from "@/lib/client";
+import { SITE } from "@/lib/site";
 import { Accordion } from "./Accordion";
 import { Button } from "./Button";
+import { Consent } from "./Consent";
 import { PageHero } from "./PageHero";
 import { Pasta } from "./Pasta";
 import { Reveal, SplitText } from "./motion";
+import { useT } from "./LocaleProvider";
 
-const CHANNELS = [
-  { t: "Позвонить", v: "+998 (99) 400-30-10", href: "tel:+998994003010", cls: "bg-mk-blue text-white" },
-  { t: "Написать", v: "hello@makstar.uz", href: "mailto:hello@makstar.uz", cls: "bg-mk-yellow" },
-  { t: "Telegram", v: "@makstar_support", href: "#", cls: "bg-mk-black text-white" },
-];
-
-const TOPICS = ["Вопрос по заказу", "Качество", "Оптовые закупки", "Сотрудничество", "Другое"];
 
 export function Field({
   label,
@@ -54,8 +52,14 @@ export function Field({
 }
 
 function ContactForm() {
-  const [topic, setTopic] = useState(TOPICS[0]);
+  const t = useT();
+  const TOPICS = t.contacts.topics;
+  const [topicIdx, setTopic] = useState(0);
   const [sent, setSent] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", email: "", text: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
   return (
     <div className="relative overflow-hidden rounded-[40px] bg-mk-yellow-soft/50 p-6 md:p-10">
       <AnimatePresence mode="wait">
@@ -69,44 +73,60 @@ function ContactForm() {
             <motion.div initial={{ rotate: -180, scale: 0 }} animate={{ rotate: 0, scale: 1 }} transition={{ type: "spring", stiffness: 150 }}>
               <Pasta kind="farfalle" className="h-32 w-32" />
             </motion.div>
-            <h3 className="mt-6 font-display text-4xl font-black uppercase">Получили!</h3>
-            <p className="mt-3 max-w-sm text-mk-black/70">Ответим в течение 15 минут в рабочее время. А пока — поставьте воду.</p>
-            <button onClick={() => setSent(false)} className="mt-6 text-sm font-bold uppercase tracking-wider text-mk-blue underline">
-              Отправить ещё
+            <h3 className="mt-6 font-display text-4xl font-black uppercase">{t.contacts.sentTitle}</h3>
+            <p className="mt-3 max-w-sm text-mk-black/70">{t.contacts.sentText}</p>
+            <button
+              onClick={() => {
+                setForm({ name: "", phone: "", email: "", text: "" });
+                setSent(false);
+              }} className="mt-6 text-sm font-bold uppercase tracking-wider text-mk-blue underline">
+              {t.contacts.sendMore}
             </button>
           </motion.div>
         ) : (
           <motion.form
             key="form"
             exit={{ opacity: 0, y: -20 }}
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              setSent(true);
+              setBusy(true);
+              setError(null);
+              try {
+                // the topic is stored in Russian so the admin panel reads the same in any site language
+                await api("/messages", { ...form, topic: dictionaries.ru.contacts.topics[topicIdx] });
+                setSent(true);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : t.contacts.failed);
+              } finally {
+                setBusy(false);
+              }
             }}
             className="space-y-4"
           >
-            <h3 className="mb-6 font-display text-3xl font-black uppercase">Напишите нам</h3>
+            <h3 className="mb-6 font-display text-3xl font-black uppercase">{t.contacts.formTitle}</h3>
             <div className="flex flex-wrap gap-2">
-              {TOPICS.map((t) => (
+              {TOPICS.map((topic, i) => (
                 <button
                   type="button"
-                  key={t}
-                  onClick={() => setTopic(t)}
+                  key={i}
+                  onClick={() => setTopic(i)}
                   className="relative rounded-full px-4 py-2 text-sm font-bold"
                 >
-                  {topic === t && <motion.span layoutId="topic" className="absolute inset-0 rounded-full bg-mk-blue" />}
-                  <span className={`relative ${topic === t ? "text-white" : ""}`}>{t}</span>
+                  {topicIdx === i && <motion.span layoutId="topic" className="absolute inset-0 rounded-full bg-mk-blue" />}
+                  <span className={`relative ${topicIdx === i ? "text-white" : ""}`}>{topic}</span>
                 </button>
               ))}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Имя" name="name" required />
-              <Field label="Телефон" name="phone" type="tel" required />
+              <Field label={t.contacts.name} name="name" required value={form.name} onChange={set("name")} />
+              <Field label={t.contacts.phone} name="phone" type="tel" required value={form.phone} onChange={set("phone")} />
             </div>
-            <Field label="Email" name="email" type="email" />
-            <Field label="Сообщение" name="message" textarea required />
-            <Button type="submit" variant="blue" big magnetic={false}>
-              Отправить
+            <Field label={t.contacts.email} name="email" type="email" value={form.email} onChange={set("email")} />
+            <Field label={t.contacts.message} name="message" textarea required value={form.text} onChange={set("text")} />
+            <Consent />
+            {error && <p className="rounded-2xl bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</p>}
+            <Button type="submit" variant="blue" big magnetic={false} disabled={busy}>
+              {busy ? t.contacts.sending : t.contacts.send}
             </Button>
           </motion.form>
         )}
@@ -116,6 +136,7 @@ function ContactForm() {
 }
 
 function MapCard() {
+  const t = useT();
   return (
     <div className="relative h-full min-h-[360px] overflow-hidden rounded-[40px] bg-mk-blue">
       <svg className="absolute inset-0 h-full w-full opacity-30" aria-hidden>
@@ -136,26 +157,34 @@ function MapCard() {
         </div>
       </div>
       <div className="absolute inset-x-4 bottom-4 rounded-3xl bg-white p-5">
-        <div className="text-xs font-bold uppercase tracking-[0.2em] text-mk-blue">Офис и пункт выдачи</div>
-        <div className="mt-1 font-display text-lg font-bold">111700, Ташкентская обл., г. Чирчик, ул. Ш. Рашидова, 368</div>
-        <div className="text-sm text-mk-black/60">Ежедневно 7:00–19:00, без перерыва</div>
+        <div className="text-xs font-bold uppercase tracking-[0.2em] text-mk-blue">{t.contacts.office}</div>
+        <div className="mt-1 font-display text-lg font-bold">{t.contacts.address}</div>
+        <div className="text-sm text-mk-black/60">{t.contacts.officeHours}</div>
       </div>
     </div>
   );
 }
 
 export function ContactsPage() {
+  const t = useT();
+  const CHANNELS = [
+    { t: t.contacts.call, v: SITE.phone, href: SITE.phoneHref, cls: "bg-mk-blue text-white" },
+    { t: t.contacts.write, v: SITE.email, href: `mailto:${SITE.email}`, cls: "bg-mk-yellow" },
+    ...(SITE.social.telegram.url
+      ? [{ t: "Telegram", v: SITE.social.telegram.handle, href: SITE.social.telegram.url, cls: "bg-mk-black text-white" }]
+      : []),
+  ];
   return (
     <>
       <PageHero
-        eyebrow="Контакты и поддержка"
-        title="Мы на связи"
-        lead="Вопрос по заказу, отзыв о вкусе или идея рецепта — пишите, звоните, приходите."
+        eyebrow={t.contacts.eyebrow}
+        title={t.contacts.title}
+        lead={t.contacts.lead}
         pastas={["conchiglie", "fusilli", "penne"]}
       />
 
       <section className="mx-auto max-w-[1400px] px-4 pt-24 md:px-8">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className={`grid gap-4 ${CHANNELS.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
           {CHANNELS.map((c, i) => (
             <Reveal key={c.t} delay={i * 0.1} y={60}>
               <a
@@ -186,17 +215,9 @@ export function ContactsPage() {
 
       <section className="mx-auto max-w-[1400px] px-4 py-24 md:px-8 md:py-32">
         <h2 className="mb-10 font-display text-4xl font-black uppercase md:text-7xl">
-          <SplitText text="Частые вопросы" />
+          <SplitText key={t.contacts.faqTitle} text={t.contacts.faqTitle} />
         </h2>
-        <Accordion
-          items={[
-            { q: "Почему ваши макароны не слипаются?", a: "Твёрдая пшеница содержит больше белка — он держит крахмал внутри. Плюс медленная сушка. Главное — много воды: 1 литр на 100 г." },
-            { q: "Можно ли их жарить без предварительной варки?", a: "Вермишель и лапшу — да, обжарьте до золотистого цвета, а затем залейте бульоном. Остальные формы лучше сначала отварить." },
-            { q: "Где купить Makstar офлайн?", a: "В большинстве сетевых супермаркетов и магазинов у дома. Точный список уточняйте в поддержке." },
-            { q: "Подходят ли для детского питания?", a: "Да, в составе только мука из твёрдой пшеницы и вода. Для детей от 1,5 лет рекомендуем вермишель и бантики." },
-            { q: "Как стать оптовым партнёром?", a: "Выберите тему «Оптовые закупки» в форме выше — менеджер свяжется в течение рабочего дня." },
-          ]}
-        />
+        <Accordion items={t.contacts.faq} />
       </section>
     </>
   );

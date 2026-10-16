@@ -2,8 +2,9 @@
 
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { formatPrice, methodLabels, type Method, type Product } from "@/lib/products";
-import { recipes } from "@/lib/recipes";
+import type { Method, Product } from "@/lib/products";
+import { getRecipes } from "@/lib/recipes";
+import { useFormatPrice, useLocale, useT } from "./LocaleProvider";
 import { Arrow, Button } from "./Button";
 import { QtyStepper } from "./CartBits";
 import { useCart } from "./CartProvider";
@@ -17,30 +18,8 @@ import { Reveal, SplitText, Tilt } from "./motion";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
 
-function howTo(p: Product): Record<Method, string[]> {
-  return {
-    boil: [
-      "Вскипятите 1 литр воды на каждые 100 г макарон.",
-      "Посолите — 10 г соли на литр. Масло не нужно, наши макароны не слипаются.",
-      `Всыпьте макароны и варите ${p.cookTime} мин, помешивая в первую минуту.`,
-      "Откиньте на дуршлаг, оставив полстакана воды для соуса.",
-    ],
-    fry: [
-      `Отварите макароны на 2 минуты меньше — ${Math.max(1, p.cookTime - 2)} мин.`,
-      "Раскалите сковороду с маслом до лёгкого дымка.",
-      "Выложите макароны и не трогайте 2–3 минуты — ждём корочку.",
-      "Переверните, добавьте лук, яйцо или фарш и жарьте ещё 3 минуты.",
-    ],
-    bake: [
-      `Отварите макароны ${Math.max(1, p.cookTime - 3)} мин — они дойдут в духовке.`,
-      "Смешайте с соусом, выложите в форму.",
-      "Посыпьте сыром и запекайте 20 минут при 200 °C.",
-      "Дайте постоять 5 минут перед подачей — так форма не развалится.",
-    ],
-  };
-}
-
 function Timer({ minutes }: { minutes: number }) {
+  const t = useT();
   const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
@@ -81,14 +60,14 @@ function Timer({ minutes }: { minutes: number }) {
         </div>
       </div>
       <div>
-        <div className="font-display text-xl font-bold">{left === 0 ? "Готово! Сливайте воду" : "Кухонный таймер"}</div>
-        <p className="mt-1 text-sm text-white/60">Нажмите, когда закипит вода.</p>
+        <div className="font-display text-xl font-bold">{left === 0 ? t.product.timerDone : t.product.timer}</div>
+        <p className="mt-1 text-sm text-white/60">{t.product.timerHint}</p>
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => (left === 0 ? (setLeft(total), setRunning(true)) : setRunning((r) => !r))}
             className="rounded-full bg-mk-yellow px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-mk-black transition-transform hover:scale-105"
           >
-            {running ? "Пауза" : left === total ? "Старт" : left === 0 ? "Ещё раз" : "Продолжить"}
+            {running ? t.product.pause : left === total ? t.product.start : left === 0 ? t.product.again : t.product.resume}
           </button>
           <button
             onClick={() => {
@@ -97,7 +76,7 @@ function Timer({ minutes }: { minutes: number }) {
             }}
             className="rounded-full border border-white/20 px-5 py-2.5 text-xs font-bold uppercase tracking-wider"
           >
-            Сброс
+            {t.product.reset}
           </button>
         </div>
       </div>
@@ -108,6 +87,8 @@ function Timer({ minutes }: { minutes: number }) {
 export function ProductView({ product }: { product: Product }) {
   const { products } = useProducts();
   const { add } = useCart();
+  const { lang, t } = useLocale();
+  const formatPrice = useFormatPrice();
   const ready = usePageReady();
   const [weight, setWeight] = useState(product.weights[0].grams);
   const [qty, setQty] = useState(1);
@@ -125,8 +106,8 @@ export function ProductView({ product }: { product: Product }) {
   const idx = products.findIndex((p) => p.slug === product.slug);
   const next = products[(idx + 1) % products.length];
   const related = products.filter((p) => p.slug !== product.slug && p.methods.some((m) => product.methods.includes(m))).slice(0, 4);
-  const productRecipes = recipes.filter((r) => r.product === product.slug);
-  const steps = howTo(product);
+  const productRecipes = getRecipes(lang).filter((r) => r.product === product.slug);
+  const steps = (m: Method) => t.product.howTo[m](product.cookTime);
 
   const addToCart = (el: HTMLElement) => add(product.slug, weight, qty, el);
 
@@ -183,7 +164,7 @@ export function ProductView({ product }: { product: Product }) {
           <div>
             <Reveal y={20} className="mb-6 flex items-center gap-2 text-sm text-white/60">
               <TLink href="/catalog" className="hover:text-mk-yellow">
-                Каталог
+                {t.product.catalog}
               </TLink>
               <span>/</span>
               <span className="text-white">{product.name}</span>
@@ -202,11 +183,11 @@ export function ProductView({ product }: { product: Product }) {
             <Reveal delay={0.3} className="mt-8 flex flex-wrap gap-2">
               {product.methods.map((m) => (
                 <span key={m} className="rounded-full border border-white/30 px-4 py-2 text-xs font-bold uppercase tracking-wider">
-                  {methodLabels[m]}
+                  {t.methods[m]}
                 </span>
               ))}
               <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wider">
-                ⏱ {product.cookTime} мин
+                ⏱ {product.cookTime} {t.min}
               </span>
             </Reveal>
 
@@ -238,7 +219,9 @@ export function ProductView({ product }: { product: Product }) {
                           {weight === w.grams && (
                             <motion.span layoutId="weight-pill" className="absolute inset-0 rounded-full bg-mk-yellow" />
                           )}
-                          <span className="relative">{w.grams} г</span>
+                          <span className="relative">
+                            {w.grams} {t.g}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -253,7 +236,7 @@ export function ProductView({ product }: { product: Product }) {
                     magnetic={false}
                     onClick={(e) => addToCart(e.currentTarget)}
                   >
-                    В корзину
+                    {t.common.addToCart}
                   </Button>
                 </div>
               </div>
@@ -277,7 +260,7 @@ export function ProductView({ product }: { product: Product }) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate font-display text-sm font-bold">
-                {product.name}, {weight} г
+                {product.name}, {weight} {t.g}
               </div>
               <div className="text-sm text-mk-yellow">{formatPrice(price * qty)}</div>
             </div>
@@ -285,7 +268,7 @@ export function ProductView({ product }: { product: Product }) {
               onClick={(e) => addToCart(e.currentTarget)}
               className="rounded-full bg-mk-yellow px-5 py-3 text-xs font-bold uppercase tracking-wider text-mk-black transition-transform hover:scale-105 active:scale-95"
             >
-              В корзину
+              {t.common.addToCart}
             </button>
           </motion.div>
         )}
@@ -296,9 +279,9 @@ export function ProductView({ product }: { product: Product }) {
         <div className="mb-10 flex gap-2 overflow-x-auto border-b border-mk-black/10" data-lenis-prevent>
           {(
             [
-              ["desc", "Описание"],
-              ["how", "Как готовить"],
-              ["nutri", "Состав и КБЖУ"],
+              ["desc", t.product.tabDesc],
+              ["how", t.product.tabHow],
+              ["nutri", t.product.tabNutri],
             ] as const
           ).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className="relative shrink-0 px-4 pb-4 font-display text-lg font-bold md:text-2xl">
@@ -319,7 +302,7 @@ export function ProductView({ product }: { product: Product }) {
               <div className="grid gap-12 md:grid-cols-2">
                 <p className="font-display text-2xl font-bold leading-snug md:text-3xl">{product.description}</p>
                 <div>
-                  <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-blue">Лучше всего с</div>
+                  <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-mk-blue">{t.product.bestWith}</div>
                   <ul className="space-y-3">
                     {product.bestWith.map((b, i) => (
                       <motion.li
@@ -343,7 +326,7 @@ export function ProductView({ product }: { product: Product }) {
                     {product.methods.map((m) => (
                       <button key={m} onClick={() => setMethod(m)} className="relative rounded-full px-5 py-2.5 text-sm font-bold">
                         {method === m && <motion.span layoutId="method-pill" className="absolute inset-0 rounded-full bg-mk-yellow" />}
-                        <span className="relative">{methodLabels[m]}</span>
+                        <span className="relative">{t.methods[m]}</span>
                       </button>
                     ))}
                   </div>
@@ -355,7 +338,7 @@ export function ProductView({ product }: { product: Product }) {
                       exit={{ opacity: 0 }}
                       className="space-y-3"
                     >
-                      {steps[method].map((s, i) => (
+                      {steps(method).map((s, i) => (
                         <motion.li
                           key={s}
                           initial={{ opacity: 0, x: -30 }}
@@ -379,23 +362,23 @@ export function ProductView({ product }: { product: Product }) {
               <div className="grid gap-10 md:grid-cols-2">
                 <div>
                   <p className="text-lg">
-                    <b>Состав:</b> мука из твёрдых сортов пшеницы (durum) высшего сорта, вода
-                    {product.slug === "noodles" ? ", яичный порошок" : ""}.
+                    <b>{t.product.composition}</b> {t.product.compositionText}
+                    {product.slug === "noodles" ? t.product.egg : ""}.
                   </p>
-                  <p className="mt-4 text-mk-black/60">
-                    Хранить в сухом месте при температуре до +25 °C. Срок годности — 24 месяца.
-                  </p>
+                  <p className="mt-4 text-mk-black/60">{t.product.storage}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    ["Ккал", product.nutrition.kcal, 400],
-                    ["Белки, г", product.nutrition.protein, 20],
-                    ["Жиры, г", product.nutrition.fat, 10],
-                    ["Углеводы, г", product.nutrition.carbs, 100],
+                    [t.product.kcal, product.nutrition.kcal, 400],
+                    [t.product.protein, product.nutrition.protein, 20],
+                    [t.product.fat, product.nutrition.fat, 10],
+                    [t.product.carbs, product.nutrition.carbs, 100],
                   ].map(([l, v, max], i) => (
                     <div key={l as string} className="rounded-3xl bg-mk-blue p-5 text-white">
                       <div className="font-display text-4xl font-black">{v}</div>
-                      <div className="text-sm text-white/70">{l} / 100 г</div>
+                      <div className="text-sm text-white/70">
+                        {l} {t.product.per100}
+                      </div>
                       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20">
                         <motion.div
                           className="h-full bg-mk-yellow"
@@ -416,20 +399,20 @@ export function ProductView({ product }: { product: Product }) {
       {productRecipes.length > 0 && (
         <section className="mx-auto max-w-[1400px] px-4 pb-20 md:px-8">
           <h2 className="mb-8 font-display text-4xl font-black uppercase md:text-6xl">
-            <SplitText text="Приготовьте это" />
+            <SplitText key={t.product.cookThis} text={t.product.cookThis} />
           </h2>
           <div className="grid gap-5 md:grid-cols-2">
             {productRecipes.map((r) => (
               <Reveal key={r.slug}>
                 <TLink
                   href="/recipes"
-                  data-cursor="Рецепт"
+                  data-cursor={t.common.cursorRecipe}
                   className="group flex items-center gap-6 overflow-hidden rounded-[32px] bg-mk-yellow p-6"
                 >
                   <Plate kind={r.kind} className="w-32 shrink-0 transition-transform duration-1000 group-hover:rotate-90 md:w-40" />
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.2em] opacity-60">
-                      {methodLabels[r.method]} · {r.time} мин
+                      {t.methods[r.method]} · {r.time} {t.min}
                     </div>
                     <h3 className="mt-2 font-display text-2xl font-black leading-tight">{r.title}</h3>
                     <p className="mt-2 text-sm opacity-70">{r.lead}</p>
@@ -443,7 +426,7 @@ export function ProductView({ product }: { product: Product }) {
 
       <section className="mx-auto max-w-[1400px] px-4 pb-24 md:px-8">
         <h2 className="mb-10 font-display text-4xl font-black uppercase md:text-6xl">
-          <SplitText text="С этим берут" />
+          <SplitText key={t.product.related} text={t.product.related} />
         </h2>
         <div className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-4 md:gap-x-8">
           {related.map((p, i) => (
@@ -456,13 +439,13 @@ export function ProductView({ product }: { product: Product }) {
 
       <TLink
         href={`/catalog/${next.slug}`}
-        data-cursor="Далее"
+        data-cursor={t.common.cursorNext}
         className="group relative mx-2 mb-2 block overflow-hidden rounded-[40px] bg-mk-black px-6 py-16 text-white md:mx-4 md:mb-4 md:px-12 md:py-24"
       >
         <div className="absolute inset-0 origin-bottom scale-y-0 bg-mk-yellow transition-transform duration-700 ease-[cubic-bezier(0.76,0,0.24,1)] group-hover:scale-y-100" />
         <div className="relative flex items-center justify-between gap-6 transition-colors duration-500 group-hover:text-mk-black">
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-60">Следующая форма</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-60">{t.product.nextShape}</div>
             <div className="mt-3 font-display text-5xl font-black uppercase md:text-9xl">{next.name}</div>
           </div>
           <div className="flex items-center gap-4">

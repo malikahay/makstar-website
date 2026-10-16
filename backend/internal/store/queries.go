@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"time"
 
@@ -134,9 +135,76 @@ func (s *Store) SaveProduct(ctx context.Context, p *Product) error {
 	return s.DB.WithContext(ctx).Model(p).Select("*").Omit("id", "created_at").Updates(p).Error
 }
 
+func (s *Store) CreateImage(ctx context.Context, contentType string, data []byte) (int64, error) {
+	img := Image{ContentType: contentType, Data: data}
+	err := s.DB.WithContext(ctx).Create(&img).Error
+	return img.ID, err
+}
+
+func (s *Store) ImageByID(ctx context.Context, id int64) (*Image, error) {
+	var img Image
+	if err := s.DB.WithContext(ctx).First(&img, id).Error; err != nil {
+		return nil, notFound(err)
+	}
+	return &img, nil
+}
+
+func (s *Store) DeleteImage(ctx context.Context, id int64) error {
+	return s.DB.WithContext(ctx).Delete(&Image{}, id).Error
+}
+
 func (s *Store) SetProductActive(ctx context.Context, id int64, active bool) error {
 	return s.DB.WithContext(ctx).Model(&Product{}).Where("id = ?", id).
 		Updates(map[string]any{"active": active, "updated_at": time.Now()}).Error
+}
+
+/* ───────── messages ───────── */
+
+type MessageInput struct {
+	Topic string `json:"topic"`
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+	Email string `json:"email"`
+	Text  string `json:"text"`
+}
+
+func (s *Store) CreateMessage(ctx context.Context, in MessageInput) (*Message, error) {
+	m := &Message{
+		Topic: strings.TrimSpace(in.Topic), Name: strings.TrimSpace(in.Name), Phone: strings.TrimSpace(in.Phone),
+		Email: strings.TrimSpace(in.Email), Text: strings.TrimSpace(in.Text),
+	}
+	switch {
+	case len([]rune(m.Name)) < 2:
+		return nil, ValidationError{Msg: "Укажите имя"}
+	case countDigits(m.Phone) < 9:
+		return nil, ValidationError{Msg: "Укажите телефон"}
+	case m.Text == "":
+		return nil, ValidationError{Msg: "Напишите сообщение"}
+	case len([]rune(m.Text)) > 5000 || len([]rune(m.Name)) > 200 || len(m.Phone) > 50 || len(m.Email) > 200 || len([]rune(m.Topic)) > 100:
+		return nil, ValidationError{Msg: "Сообщение слишком длинное"}
+	}
+	return m, s.DB.WithContext(ctx).Create(m).Error
+}
+
+func (s *Store) Messages(ctx context.Context) ([]Message, error) {
+	var ms []Message
+	return ms, s.DB.WithContext(ctx).Order("done, id DESC").Limit(300).Find(&ms).Error
+}
+
+func (s *Store) SetMessageDone(ctx context.Context, id int64, done bool) (*Message, error) {
+	var m Message
+	if err := s.DB.WithContext(ctx).Model(&m).Where("id = ?", id).Update("done", done).Error; err != nil {
+		return nil, err
+	}
+	if err := s.DB.WithContext(ctx).First(&m, id).Error; err != nil {
+		return nil, notFound(err)
+	}
+	return &m, nil
+}
+
+func (s *Store) CountOpenMessages(ctx context.Context) (int64, error) {
+	var n int64
+	return n, s.DB.WithContext(ctx).Model(&Message{}).Where("NOT done").Count(&n).Error
 }
 
 /* ───────── orders ───────── */
@@ -148,6 +216,10 @@ const (
 	PromoPercent     = 10
 )
 
+// PaymentMethods are the accepted payment labels. Orders store the Russian label (the storefront
+// sends dictionaries.ru.checkout.payments) so the admin panel reads the same in any site language.
+var PaymentMethods = []string{"Картой при получении", "Наличными при получении"}
+
 type OrderInput struct {
 	Name     string `json:"name"`
 	Phone    string `json:"phone"`
@@ -158,6 +230,7 @@ type OrderInput struct {
 	Comment  string `json:"comment"`
 	Payment  string `json:"payment"`
 	Promo    string `json:"promo"`
+	Lang     string `json:"-"` // language for product names in error messages
 	Items    []struct {
 		Slug  string `json:"slug"`
 		Grams int    `json:"grams"`
@@ -166,24 +239,30 @@ type OrderInput struct {
 }
 
 // ValidationError carries a message that is safe to show to the customer.
-type ValidationError struct{ Msg string }
+// Msg is a Russian fmt format string; the API layer translates it before formatting.
+type ValidationError struct {
+	Msg  string
+	Args []any
+}
 
-func (e ValidationError) Error() string { return e.Msg }
+func (e ValidationError) Error() string { return fmt.Sprintf(e.Msg, e.Args...) }
 
 // CreateOrder prices the cart from the database (never trusting client prices) and stores the order.
 func (s *Store) CreateOrder(ctx context.Context, in OrderInput, userID *int64) (*Order, error) {
 	in.Name, in.Phone, in.Address = strings.TrimSpace(in.Name), strings.TrimSpace(in.Phone), strings.TrimSpace(in.Address)
 	switch {
 	case len([]rune(in.Name)) < 2:
-		return nil, ValidationError{"Укажите имя"}
+		return nil, ValidationError{Msg: "Укажите имя"}
 	case countDigits(in.Phone) < 9:
-		return nil, ValidationError{"Укажите телефон"}
+		return nil, ValidationError{Msg: "Укажите телефон"}
 	case in.Delivery != "courier" && in.Delivery != "pickup":
-		return nil, ValidationError{"Выберите способ доставки"}
+		return nil, ValidationError{Msg: "Выберите способ доставки"}
 	case in.Delivery == "courier" && len([]rune(in.Address)) < 5:
-		return nil, ValidationError{"Укажите адрес доставки"}
+		return nil, ValidationError{Msg: "Укажите адрес доставки"}
+	case !slices.Contains(PaymentMethods, in.Payment):
+		return nil, ValidationError{Msg: "Выберите способ оплаты"}
 	case len(in.Items) == 0 || len(in.Items) > 50:
-		return nil, ValidationError{"Корзина пуста"}
+		return nil, ValidationError{Msg: "Корзина пуста"}
 	}
 
 	o := &Order{
@@ -195,17 +274,17 @@ func (s *Store) CreateOrder(ctx context.Context, in OrderInput, userID *int64) (
 	}
 	for _, it := range in.Items {
 		if it.Qty < 1 || it.Qty > 999 {
-			return nil, ValidationError{"Неверное количество товара"}
+			return nil, ValidationError{Msg: "Неверное количество товара"}
 		}
 		p, err := s.ActiveProductBySlug(ctx, it.Slug)
 		if errors.Is(err, ErrNotFound) {
-			return nil, ValidationError{fmt.Sprintf("Товар «%s» больше не продаётся", it.Slug)}
+			return nil, ValidationError{"Товар «%s» больше не продаётся", []any{it.Slug}}
 		} else if err != nil {
 			return nil, err
 		}
 		price, ok := p.PriceFor(it.Grams)
 		if !ok {
-			return nil, ValidationError{fmt.Sprintf("Фасовки %d г для «%s» больше нет", it.Grams, p.Name)}
+			return nil, ValidationError{"Фасовки %d г для «%s» больше нет", []any{it.Grams, p.Localized(in.Lang).Name}}
 		}
 		o.Items = append(o.Items, OrderItem{ProductSlug: p.Slug, ProductName: p.Name, Grams: it.Grams, Qty: it.Qty, Price: price})
 		o.Subtotal += price * int64(it.Qty)

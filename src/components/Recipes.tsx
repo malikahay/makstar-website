@@ -3,10 +3,11 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { lenisRef } from "@/lib/lenis";
-import { methodLabels, type Method, type PastaKind } from "@/lib/products";
-import type { Recipe } from "@/lib/recipes";
+import type { Method, PastaKind } from "@/lib/products";
+import { getRecipes, type Recipe } from "@/lib/recipes";
 import { Button } from "./Button";
 import { useCart } from "./CartProvider";
+import { useLocale, useT } from "./LocaleProvider";
 import { useProducts } from "./ProductsProvider";
 import { Pasta } from "./Pasta";
 
@@ -58,17 +59,20 @@ export function Plate({ kind, className = "", spin = false }: { kind: PastaKind;
 }
 
 export function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => void }) {
+  const t = useT();
   return (
     <motion.button
       layoutId={`recipe-${recipe.slug}`}
       onClick={onOpen}
-      data-cursor="Готовить"
+      data-cursor={t.common.cursorCook}
       className={`group relative flex w-full flex-col overflow-hidden rounded-[32px] p-6 text-left ${methodBg[recipe.method]}`}
       style={{ borderRadius: 32 }}
     >
       <div className="flex items-center justify-between text-xs font-bold uppercase tracking-[0.2em]">
-        <span>{methodLabels[recipe.method]}</span>
-        <span className="opacity-70">{recipe.time} мин</span>
+        <span>{t.methods[recipe.method]}</span>
+        <span className="opacity-70">
+          {recipe.time} {t.min}
+        </span>
       </div>
       <motion.div layoutId={`plate-${recipe.slug}`} className="mx-auto my-6 w-[72%]">
         <Plate
@@ -81,8 +85,8 @@ export function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => v
       </motion.h3>
       <p className="mt-2 text-sm opacity-75">{recipe.lead}</p>
       <div className="mt-5 flex items-center gap-2 text-xs font-bold">
-        <span className="rounded-full border border-current px-3 py-1">{recipe.level}</span>
-        <span className="rounded-full border border-current px-3 py-1">{recipe.servings} порц.</span>
+        <span className="rounded-full border border-current px-3 py-1">{t.levels[recipe.level]}</span>
+        <span className="rounded-full border border-current px-3 py-1">{t.recipes.servingsShort(recipe.servings)}</span>
       </div>
     </motion.button>
   );
@@ -91,6 +95,7 @@ export function RecipeCard({ recipe, onOpen }: { recipe: Recipe; onOpen: () => v
 export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
   const { add } = useCart();
   const { getProduct } = useProducts();
+  const t = useT();
   const product = getProduct(recipe.product);
   const [done, setDone] = useState<Set<number>>(new Set());
 
@@ -124,7 +129,7 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
         <button
           onClick={onClose}
           className="absolute right-5 top-5 z-10 grid h-11 w-11 place-items-center rounded-full bg-white text-mk-black transition-transform hover:rotate-90"
-          aria-label="Закрыть"
+          aria-label={t.common.close}
         >
           ✕
         </button>
@@ -135,9 +140,9 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
             </motion.div>
             <div className="mt-8 grid grid-cols-3 gap-2 text-center">
               {[
-                [recipe.time + "", "минут"],
-                [recipe.servings + "", "порции"],
-                [recipe.level, "уровень"],
+                [recipe.time + "", t.recipes.minutesLabel],
+                [recipe.servings + "", t.recipes.servingsLabel],
+                [t.levels[recipe.level], t.recipes.levelLabel],
               ].map(([v, l]) => (
                 <div key={l} className="rounded-2xl bg-white/15 p-3 ring-1 ring-current/10">
                   <div className="font-display text-xl font-black">{v}</div>
@@ -147,7 +152,7 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
             </div>
           </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-70">{methodLabels[recipe.method]}</div>
+            <div className="text-xs font-bold uppercase tracking-[0.3em] opacity-70">{t.methods[recipe.method]}</div>
             <motion.h3 layoutId={`title-${recipe.slug}`} className="mt-2 pr-12 font-display text-3xl font-black leading-tight md:text-5xl">
               {recipe.title}
             </motion.h3>
@@ -157,7 +162,7 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
               exit={{ opacity: 0 }}
             >
               <p className="mt-4 opacity-80">{recipe.lead}</p>
-              <h4 className="mt-8 font-display text-lg font-bold">Ингредиенты</h4>
+              <h4 className="mt-8 font-display text-lg font-bold">{t.recipes.ingredients}</h4>
               <ul className="mt-3 space-y-2">
                 {recipe.ingredients.map((i) => (
                   <li key={i} className="flex items-center gap-3">
@@ -166,7 +171,7 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
                   </li>
                 ))}
               </ul>
-              <h4 className="mt-8 font-display text-lg font-bold">Шаги · отмечайте по ходу</h4>
+              <h4 className="mt-8 font-display text-lg font-bold">{t.recipes.steps}</h4>
               <ol className="mt-3 space-y-3">
                 {recipe.steps.map((s, i) => {
                   const checked = done.has(i);
@@ -204,9 +209,9 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
                     <Pasta kind={product.kind} className="h-12 w-12" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs font-bold uppercase tracking-widest text-mk-black/50">Понадобится</div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-mk-black/50">{t.recipes.youNeed}</div>
                     <div className="font-display font-bold">
-                      {product.name} Makstar, {product.weights[0].grams} г
+                      {product.name} Makstar, {product.weights[0].grams} {t.g}
                     </div>
                   </div>
                   <Button
@@ -214,7 +219,7 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
                     magnetic={false}
                     onClick={(e) => add(product.slug, product.weights[0].grams, 1, e.currentTarget)}
                   >
-                    В корзину
+                    {t.common.addToCart}
                   </Button>
                 </div>
               )}
@@ -226,9 +231,12 @@ export function RecipeModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
   );
 }
 
-export function RecipeGrid({ recipes, initialMethod }: { recipes: Recipe[]; initialMethod?: Method | "all" }) {
+export function RecipeGrid({ initialMethod }: { initialMethod?: Method | "all" }) {
+  const { lang, t } = useLocale();
+  const recipes = getRecipes(lang);
   const [filter, setFilter] = useState<Method | "all">(initialMethod ?? "all");
-  const [open, setOpen] = useState<Recipe | null>(null);
+  const [openSlug, setOpen] = useState<string | null>(null);
+  const open = recipes.find((r) => r.slug === openSlug) ?? null;
   const close = useCallback(() => setOpen(null), []);
   const list = filter === "all" ? recipes : recipes.filter((r) => r.method === filter);
   const filters: (Method | "all")[] = ["all", "boil", "fry", "bake"];
@@ -250,7 +258,7 @@ export function RecipeGrid({ recipes, initialMethod }: { recipes: Recipe[]; init
               />
             )}
             <span className={`relative transition-colors ${filter === f ? "text-white" : "text-mk-black"}`}>
-              {f === "all" ? "Все" : methodLabels[f]}
+              {f === "all" ? t.common.all : t.methods[f]}
             </span>
           </button>
         ))}
@@ -266,7 +274,7 @@ export function RecipeGrid({ recipes, initialMethod }: { recipes: Recipe[]; init
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: i * 0.05 }}
             >
-              <RecipeCard recipe={r} onOpen={() => setOpen(r)} />
+              <RecipeCard recipe={r} onOpen={() => setOpen(r.slug)} />
             </motion.div>
           ))}
         </AnimatePresence>

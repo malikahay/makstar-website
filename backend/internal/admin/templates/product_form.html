@@ -5,9 +5,19 @@
 {{end}}
 
 {{define "product_form"}}
-<form class="card" hx-post="{{if .P.ID}}/admin/products/{{.P.ID}}{{else}}/admin/products/new{{end}}" hx-swap="outerHTML">
+<form class="card" hx-post="{{if .P.ID}}/admin/products/{{.P.ID}}{{else}}/admin/products/new{{end}}" hx-swap="outerHTML" hx-encoding="multipart/form-data">
   {{if .Err}}<div class="err">{{.Err}}</div>{{end}}
   <div class="form">
+    <div class="full photo">
+      <img id="photo-preview" src="{{.P.Image}}" alt="" {{if not .P.Image}}hidden{{end}}>
+      <div>
+        <label>Фото товара — JPG, PNG или WebP до 5 МБ. На сайте показывается вместо нарисованной пачки
+          <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
+            onchange="const i=document.getElementById('photo-preview');if(this.files[0]){i.src=URL.createObjectURL(this.files[0]);i.hidden=false}">
+        </label>
+        {{if .P.Image}}<div class="checks"><label><input type="checkbox" name="remove_image" value="1"> Удалить фото</label></div>{{end}}
+      </div>
+    </div>
     <label>Название<input name="name" value="{{.P.Name}}" required></label>
     <label>Латинское название<input name="latin" value="{{.P.Latin}}"></label>
     <label>Адрес (slug) — латиница, цифры, дефис<input name="slug" value="{{.P.Slug}}" required pattern="[a-z0-9-]+"></label>
@@ -31,6 +41,16 @@
     <label>Белки, г<input name="protein" type="number" step="0.1" value="{{.P.Nutrition.V.Protein}}"></label>
     <label>Жиры, г<input name="fat" type="number" step="0.1" value="{{.P.Nutrition.V.Fat}}"></label>
     <label>Углеводы, г<input name="carbs" type="number" step="0.1" value="{{.P.Nutrition.V.Carbs}}"></label>
+    <div class="full" style="margin-top:10px;padding-top:18px;border-top:1.5px solid var(--line)">
+      <h2 style="margin:0">Узбекский · O‘zbekcha</h2>
+      <p class="small muted" style="margin:4px 0 0">Показывается, когда на сайте выбран язык UZ. Пустые поля берутся из русской версии.</p>
+    </div>
+    {{$uz := index .P.I18n.V "uz"}}
+    <label>Название (uz)<input name="uz_name" value="{{$uz.Name}}"></label>
+    <label>Бейдж (uz)<input name="uz_badge" value="{{$uz.Badge}}" placeholder="Xit, Yangi…"></label>
+    <label class="full">Слоган (uz)<input name="uz_tagline" value="{{$uz.Tagline}}"></label>
+    <label class="full">Описание (uz)<textarea name="uz_description" rows="4">{{$uz.Description}}</textarea></label>
+    <label class="full">С чем подавать (uz) — по одному на строку<textarea name="uz_best_with" rows="3">{{lines $uz.BestWith}}</textarea></label>
     <label>Порядок сортировки<input name="sort" type="number" value="{{.P.Sort}}"></label>
     <div><label>&nbsp;</label><div class="checks"><label><input type="checkbox" name="active" value="1" {{if .P.Active}}checked{{end}}> Показывать на сайте</label></div></div>
   </div>

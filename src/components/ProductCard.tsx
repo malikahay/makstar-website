@@ -1,7 +1,8 @@
 "use client";
 
-import { formatPrice, methodLabels, type Product } from "@/lib/products";
+import type { Product } from "@/lib/products";
 import { useCart } from "./CartProvider";
+import { useFormatPrice, useT } from "./LocaleProvider";
 import { Pack } from "./Pack";
 import { Pasta } from "./Pasta";
 import { TLink } from "./TransitionProvider";
@@ -9,10 +10,12 @@ import { Tilt } from "./motion";
 
 export function ProductCard({ product, dark = false }: { product: Product; dark?: boolean }) {
   const { add } = useCart();
+  const t = useT();
+  const formatPrice = useFormatPrice();
   const w = product.weights[0];
   return (
     <div className="group relative">
-      <TLink href={`/catalog/${product.slug}`} data-cursor="Открыть" className="block">
+      <TLink href={`/catalog/${product.slug}`} data-cursor={t.common.cursorOpen} className="block">
         <Tilt className="relative" max={10}>
           {/* pasta popping out of the pack */}
           {[
@@ -48,19 +51,19 @@ export function ProductCard({ product, dark = false }: { product: Product; dark?
           <div className={`mt-1 flex flex-wrap gap-1 ${dark ? "text-white/60" : "text-mk-black/50"}`}>
             {product.methods.map((m) => (
               <span key={m} className="text-xs font-semibold">
-                {methodLabels[m]}
+                {t.methods[m]}
                 {m !== product.methods[product.methods.length - 1] && " ·"}
               </span>
             ))}
           </div>
           <div className={`mt-2 font-display text-sm font-bold md:text-base ${dark ? "text-mk-yellow" : "text-mk-blue"}`}>
-            {formatPrice(w.price)} <span className="text-xs font-medium opacity-60">/ {w.grams} г</span>
+            {formatPrice(w.price)} <span className="text-xs font-medium opacity-60">/ {w.grams} {t.g}</span>
           </div>
         </div>
         <button
           onClick={(e) => add(product.slug, w.grams, 1, e.currentTarget)}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mk-yellow text-2xl md:h-12 md:w-12 font-bold text-mk-black transition-all duration-300 hover:rotate-90 hover:scale-110 hover:bg-mk-blue hover:text-white active:scale-90"
-          aria-label={`Добавить ${product.name} в корзину`}
+          aria-label={t.catalog.addAria(product.name)}
         >
           +
         </button>
